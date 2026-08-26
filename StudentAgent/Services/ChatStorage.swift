@@ -30,59 +30,30 @@ public final class ChatStorage: ObservableObject {
         dataDirectory.appendingPathComponent("messages.json")
     }
     
-    public init() {
+    private init() {
         loadData()
-    }
-    
-    public func loadData() {
-        // 1. Load conversations
-        if let data = try? Data(contentsOf: conversationsFileURL) {
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            if let loaded = try? decoder.decode([ConversationItem].self, from: data) {
-                self.conversations = loaded
-            }
-        }
-        
-        // 2. Load messages
-        if let data = try? Data(contentsOf: messagesFileURL) {
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            if let loaded = try? decoder.decode([ChatMessageItem].self, from: data) {
-                var dict: [String: [ChatMessageItem]] = [:]
-                for msg in loaded {
-                    dict[msg.conversationId, default: []].append(msg)
-                }
-                self.messagesByConversation = dict
-            }
-        }
-        
-        // If empty, create initial conversation
         if conversations.isEmpty {
-            let initial = ConversationItem(title: "Student Inbox & Schedule")
-            conversations.append(initial)
+            _ = createConversation(title: "New Conversation")
             saveData()
         }
     }
     
-    public func saveData() {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        encoder.dateEncodingStrategy = .iso8601
-        
-        // 1. Save conversations
-        if let convData = try? encoder.encode(conversations) {
-            try? convData.write(to: conversationsFileURL, options: .atomic)
+    @discardableResult
+    public func createConversation(title: String = "New Conversation") -> ConversationItem {
+        let item = ConversationItem(title: title)
+        conversations.insert(item, at: 0)
+        messagesByConversation[item.id] = []
+        saveData()
+        return item
+    }
+    
+    public func deleteConversation(id: String) {
+        conversations.removeAll(where: { $0.id == id })
+        messagesByConversation.removeValue(forKey: id)
+        if conversations.isEmpty {
+            _ = createConversation(title: "New Conversation")
         }
-        
-        // 2. Save all messages flat
-        let allMessages = messagesByConversation.values.flatMap { $0 }
-        if let msgData = try? encoder.encode(allMessages) {
-            try? msgData.write(to: messagesFileURL, options: .atomic)
-        }
-        
-        // Also trigger backup
-        BackupService.shared.exportBackup(conversations: conversations, messages: allMessages)
+        saveData()
     }
     
     public func getMessages(for conversationId: String) -> [ChatMessageItem] {
@@ -90,9 +61,11 @@ public final class ChatStorage: ObservableObject {
     }
     
     public func addMessage(_ message: ChatMessageItem) {
-        messagesByConversation[message.conversationId, default: []].append(message)
+        if messagesByConversation[message.conversationId] == nil {
+            messagesByConversation[message.conversationId] = []
+        }
+        messagesByConversation[message.conversationId]?.append(message)
         
-        // Update conversation timestamp
         if let idx = conversations.firstIndex(where: { $0.id == message.conversationId }) {
             conversations[idx].updatedAt = Date()
         }
@@ -100,32 +73,70 @@ public final class ChatStorage: ObservableObject {
         saveData()
     }
     
-    public func createConversation(title: String = "New Conversation") -> ConversationItem {
-        let newConv = ConversationItem(title: title)
-        conversations.insert(newConv, at: 0)
-        saveData()
-        return newConv
-    }
-    
-    public func deleteConversation(_ conversation: ConversationItem) {
-        conversations.removeAll { $0.id == conversation.id }
-        messagesByConversation.removeValue(forKey: conversation.id)
-        saveData()
-    }
-    
-    public func updateActionStatus(actionId: String, in messageId: String, conversationId: String, newStatus: CalendarActionStatus, eventId: String? = nil) {
-        guard let list = messagesByConversation[conversationId],
-              let msgIdx = list.firstIndex(where: { $0.id == messageId }) else { return }
-        
-        var actions = list[msgIdx].proposedActions
-        guard let actIdx = actions.firstIndex(where: { $0.id == actionId }) else { return }
-        
-        actions[actIdx].status = newStatus
-        if let eventId = eventId {
-            actions[actIdx].createdEventIdentifier = eventId
+    public func updateActionStatus(
+        actionId: String,
+        in messageId: String,
+        conversationId: String,
+        newStatus: CalendarActionStatus,
+        eventId: String? = nil
+    ) {
+        guard var msgs = messagesByConversation[conversationId] else { return }
+        for i in 0..<msgs.count {
+            if msgs[i].id == messageId {
+                for j in 0..<msgs[i].proposedActions.count {
+                    if msgs[i].proposedActions[j].id == actionId {
+                        msgs[i].proposedActions[j].status = newStatus
+                        msgs[i].proposedActions[j].createdEventIdentifier = eventId
+                    }
+                }
+            }
         }
-        list[msgIdx].proposedActions = actions
-        messagesByConversation[conversationId] = list
+        messagesByConversation[conversationId] = msgs
         saveData()
+    }
+    
+    public func saveData() {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .prettyPrinted
+        encoder.dateEncodingStrategy = .iso8601
+        
+        if let convosData = try? encoder.encode(conversations) {
+            try? convosData.write(to: conversationsFileURL, options: .atomic)
+        }
+        
+        var flatMessages: [ChatMessageItem] = []
+        for list in messagesByConversation.values {
+            flatMessages.append(contentsOf: list)
+        }
+        if let msgsData = try? encoder.encode(flatMessages) {
+            try? msgsData.write(to: messagesFileURL, options: .atomic)
+        }
+        
+        BackupService.shared.exportBackup(conversations: conversations, messages: flatMessages)
+    }
+    
+    public func loadData() {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        
+        if let convosData = try? Data(contentsOf: conversationsFileURL),
+           let loadedConvos = try? decoder.decode([ConversationItem].self, from: convosData) {
+            self.conversations = loadedConvos.sorted(by: { $0.updatedAt > $1.updatedAt })
+        }
+        
+        if let msgsData = try? Data(contentsOf: messagesFileURL),
+           let loadedMsgs = try? decoder.decode([ChatMessageItem].self, from: msgsData) {
+            var map: [String: [ChatMessageItem]] = [:]
+            for msg in loadedMsgs {
+                if map[msg.conversationId] == nil {
+                    map[msg.conversationId] = []
+                }
+                map[msg.conversationId]?.append(msg)
+            }
+            for (key, val) in map {
+                map[key] = val.sorted(by: { $0.timestamp < $1.timestamp })
+            }
+            self.messagesByConversation = map
+        }
     }
 }

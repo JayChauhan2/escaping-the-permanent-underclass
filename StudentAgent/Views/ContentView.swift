@@ -213,11 +213,7 @@ public struct ContentView: View {
                             selectedConversation = convo
                             closeSidebar()
                         }) {
-                            HStack(spacing: 10) {
-                                Image(systemName: "bubble.left")
-                                    .font(.system(size: 13))
-                                    .foregroundColor(selectedConversation?.id == convo.id ? Color.grokLinkBlue : Color.grokTextSecondary)
-                                
+                            HStack {
                                 Text(convo.title)
                                     .font(.system(size: 14, weight: selectedConversation?.id == convo.id ? .bold : .regular))
                                     .foregroundColor(selectedConversation?.id == convo.id ? Color.grokTextPrimary : Color.grokTextSecondary)
@@ -225,12 +221,19 @@ public struct ContentView: View {
                                 
                                 Spacer()
                             }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 10)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 11)
                             .background(selectedConversation?.id == convo.id ? Color.grokSurface2 : Color.clear)
                             .cornerRadius(10)
                         }
                         .buttonStyle(GrokPressableStyle())
+                        .contextMenu {
+                            Button(role: .destructive, action: {
+                                deleteChat(convo)
+                            }) {
+                                Label("Delete Conversation", systemImage: "trash")
+                            }
+                        }
                     }
                 }
                 .padding(.horizontal, 12)
@@ -263,7 +266,6 @@ public struct ContentView: View {
                 }
                 .buttonStyle(GrokPressableStyle())
                 
-                // Bottom Thumb-Friendly New Chat Button
                 Button(action: {
                     closeSidebar()
                     createNewChat()
@@ -296,5 +298,17 @@ public struct ContentView: View {
     private func createNewChat() {
         let newConvo = storage.createConversation()
         selectedConversation = newConvo
+    }
+    
+    private func deleteChat(_ convo: ConversationItem) {
+        #if canImport(UIKit)
+        UINotificationFeedbackGenerator().notificationOccurred(.warning)
+        #endif
+        withAnimation {
+            storage.deleteConversation(id: convo.id)
+            if selectedConversation?.id == convo.id {
+                selectedConversation = storage.conversations.first
+            }
+        }
     }
 }
