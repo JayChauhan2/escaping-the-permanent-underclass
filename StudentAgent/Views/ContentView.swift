@@ -33,88 +33,87 @@ public struct ContentView: View {
     }
     
     public var body: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .leading) {
-                // 1. Main Chat Surface
-                if let convo = selectedConversation ?? storage.conversations.first {
-                    ChatView(
-                        conversation: convo,
-                        orchestrator: orchestrator,
-                        onOpenSidebar: {
-                            openSidebar()
-                        },
-                        onNewChat: createNewChat
-                    )
-                    .frame(width: geometry.size.width, height: geometry.size.height)
-                } else {
-                    Color.grokCanvas.ignoresSafeArea()
-                }
+        ZStack(alignment: .leading) {
+            // 1. Main Chat Surface (Native Keyboard Avoidance enabled - NO GeometryReader lock)
+            if let convo = selectedConversation ?? storage.conversations.first {
+                ChatView(
+                    conversation: convo,
+                    orchestrator: orchestrator,
+                    onOpenSidebar: {
+                        openSidebar()
+                    },
+                    onNewChat: createNewChat
+                )
+            } else {
+                Color.grokCanvas.ignoresSafeArea()
+            }
+            
+            // 2. Dimming Backdrop
+            if showingSidebar || isDragging {
+                let progress: CGFloat = showingSidebar
+                    ? min(1.0, max(0.0, (sidebarWidth + dragOffset) / sidebarWidth))
+                    : min(1.0, max(0.0, dragOffset / sidebarWidth))
                 
-                // 2. Dimming Backdrop
-                if showingSidebar || isDragging {
-                    let progress: CGFloat = showingSidebar
-                        ? min(1.0, max(0.0, (sidebarWidth + dragOffset) / sidebarWidth))
-                        : min(1.0, max(0.0, dragOffset / sidebarWidth))
+                Color.black.opacity(Double(progress) * 0.65)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        closeSidebar()
+                    }
+            }
+            
+            // 3. Sliding Sidebar Drawer
+            sidebarDrawer
+                .frame(width: sidebarWidth)
+                .offset(x: currentDrawerOffset)
+                .animation(isDragging ? nil : .interactiveSpring(response: 0.28, dampingFraction: 0.82), value: dragOffset)
+                .animation(isDragging ? nil : .interactiveSpring(response: 0.28, dampingFraction: 0.82), value: showingSidebar)
+        }
+        .contentShape(Rectangle())
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 8, coordinateSpace: .global)
+                .onChanged { value in
+                    let startX = value.startLocation.x
+                    let translationX = value.translation.width
+                    let translationY = abs(value.translation.height)
                     
-                    Color.black.opacity(Double(progress) * 0.65)
-                        .ignoresSafeArea()
-                        .onTapGesture {
+                    guard abs(translationX) > translationY * 1.1 else { return }
+                    
+                    if !showingSidebar {
+                        // Swipe right to open
+                        if startX < 240 && translationX > 0 {
+                            isDragging = true
+                            dragOffset = min(sidebarWidth, translationX)
+                        }
+                    } else {
+                        // Swipe left to close anywhere
+                        if translationX < 0 {
+                            isDragging = true
+                            dragOffset = translationX
+                        }
+                    }
+                }
+                .onEnded { value in
+                    guard isDragging else { return }
+                    isDragging = false
+                    
+                    let translationX = value.translation.width
+                    let predictedX = value.predictedEndTranslation.width
+                    
+                    if showingSidebar {
+                        if translationX < -40 || predictedX < -80 {
+                            closeSidebar()
+                        } else {
+                            openSidebar()
+                        }
+                    } else {
+                        if translationX > 40 || predictedX > 80 {
+                            openSidebar()
+                        } else {
                             closeSidebar()
                         }
+                    }
                 }
-                
-                // 3. Sliding Sidebar Drawer
-                sidebarDrawer(geometry: geometry)
-                    .frame(width: sidebarWidth)
-                    .offset(x: currentDrawerOffset)
-                    .animation(isDragging ? nil : .interactiveSpring(response: 0.28, dampingFraction: 0.82), value: dragOffset)
-                    .animation(isDragging ? nil : .interactiveSpring(response: 0.28, dampingFraction: 0.82), value: showingSidebar)
-            }
-            .contentShape(Rectangle())
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 8, coordinateSpace: .global)
-                    .onChanged { value in
-                        let startX = value.startLocation.x
-                        let translationX = value.translation.width
-                        let translationY = abs(value.translation.height)
-                        
-                        guard abs(translationX) > translationY * 1.1 else { return }
-                        
-                        if !showingSidebar {
-                            if startX < geometry.size.width * 0.65 && translationX > 0 {
-                                isDragging = true
-                                dragOffset = min(sidebarWidth, translationX)
-                            }
-                        } else {
-                            if translationX < 0 {
-                                isDragging = true
-                                dragOffset = translationX
-                            }
-                        }
-                    }
-                    .onEnded { value in
-                        guard isDragging else { return }
-                        isDragging = false
-                        
-                        let translationX = value.translation.width
-                        let predictedX = value.predictedEndTranslation.width
-                        
-                        if showingSidebar {
-                            if translationX < -40 || predictedX < -80 {
-                                closeSidebar()
-                            } else {
-                                openSidebar()
-                            }
-                        } else {
-                            if translationX > 40 || predictedX > 80 {
-                                openSidebar()
-                            } else {
-                                closeSidebar()
-                            }
-                        }
-                    }
-            )
-        }
+        )
         .preferredColorScheme(.dark)
         .onAppear {
             if selectedConversation == nil {
@@ -154,10 +153,8 @@ public struct ContentView: View {
     }
     
     // Grok History Drawer
-    private func sidebarDrawer(geometry: GeometryProxy) -> some View {
+    private var sidebarDrawer: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Color.clear.frame(height: geometry.safeAreaInsets.top)
-            
             // Header: Title & Top New Chat
             HStack {
                 Text("Conversations")
@@ -180,7 +177,7 @@ public struct ContentView: View {
                 .buttonStyle(GrokPressableStyle())
             }
             .padding(.horizontal, 16)
-            .padding(.top, 8)
+            .padding(.top, 14)
             .padding(.bottom, 12)
             
             // Search Box
@@ -256,7 +253,7 @@ public struct ContentView: View {
                         Text("Settings & Telemetry")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(Color.grokTextPrimary)
-                        
+                            
                         Spacer()
                     }
                     .padding(.horizontal, 12)
@@ -282,8 +279,6 @@ public struct ContentView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
             .background(Color.grokSurface1)
-            
-            Color.clear.frame(height: geometry.safeAreaInsets.bottom)
         }
         .background(Color.grokSurface1)
         .overlay(
@@ -292,7 +287,7 @@ public struct ContentView: View {
                 .foregroundColor(Color.grokDivider),
             alignment: .trailing
         )
-        .ignoresSafeArea()
+        .ignoresSafeArea(.keyboard, edges: .bottom)
     }
     
     private func createNewChat() {
