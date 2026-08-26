@@ -25,12 +25,13 @@ public struct MessageBubbleView: View {
     public var body: some View {
         VStack(alignment: isUser ? .trailing : .leading, spacing: 6) {
             if isUser {
-                // User Bubble: Right-aligned subtle slate container (#1E2126)
+                // User Bubble: Selectable text + Long-press context menu to copy
                 HStack {
                     Spacer(minLength: 48)
                     Text(message.content)
                         .font(.system(size: 15))
                         .foregroundColor(Color.grokTextPrimary)
+                        .textSelection(.enabled)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
                         .background(Color.grokSurface2)
@@ -39,9 +40,16 @@ public struct MessageBubbleView: View {
                             RoundedRectangle(cornerRadius: 18)
                                 .strokeBorder(Color.grokDivider, lineWidth: 0.5)
                         )
+                        .contextMenu {
+                            Button {
+                                copyText(message.content)
+                            } label: {
+                                Label("Copy Message", systemImage: "doc.on.doc")
+                            }
+                        }
                 }
             } else {
-                // Assistant Transcript: Full width, clean typography with live streaming cursor
+                // Assistant Transcript: Full width, selectable typography with live streaming cursor
                 VStack(alignment: .leading, spacing: 10) {
                     // Agent Header Indicator
                     HStack(spacing: 6) {
@@ -66,13 +74,14 @@ public struct MessageBubbleView: View {
                     }
                     .padding(.top, 4)
                     
-                    // Body text with Grok streaming cursor
+                    // Body text with Grok streaming cursor & textSelection
                     if message.isStreaming {
                         HStack(alignment: .bottom, spacing: 2) {
                             Text(message.content)
                                 .font(.system(size: 15))
                                 .lineSpacing(4)
                                 .foregroundColor(Color.grokTextPrimary)
+                                .textSelection(.enabled)
                             
                             Text("▍")
                                 .font(.system(size: 15, weight: .bold))
@@ -89,7 +98,15 @@ public struct MessageBubbleView: View {
                             .font(.system(size: 15))
                             .lineSpacing(4)
                             .foregroundColor(Color.grokTextPrimary)
+                            .textSelection(.enabled)
                             .fixedSize(horizontal: false, vertical: true)
+                            .contextMenu {
+                                Button {
+                                    copyText(message.content)
+                                } label: {
+                                    Label("Copy Response", systemImage: "doc.on.doc")
+                                }
+                            }
                     }
                     
                     // Embedded Email Citations
@@ -116,11 +133,15 @@ public struct MessageBubbleView: View {
         .padding(.vertical, 2)
     }
     
-    private func copyResponse() {
+    private func copyText(_ text: String) {
         #if canImport(UIKit)
-        UIPasteboard.general.string = message.content
+        UIPasteboard.general.string = text
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         #endif
+    }
+    
+    private func copyResponse() {
+        copyText(message.content)
         withAnimation {
             didCopy = true
         }
