@@ -143,7 +143,7 @@ public final class DeepSeekService {
     
     private init() {}
     
-    // Streaming Chat Completion
+    // Streaming Chat Completion (Max Tokens 8192)
     public func sendChatCompletionStream(
         messages: [DeepSeekMessage],
         tools: [DeepSeekToolDefinition]? = nil,
@@ -173,7 +173,7 @@ public final class DeepSeekService {
             tools: tools,
             tool_choice: tools != nil ? "auto" : nil,
             temperature: 0.3,
-            max_tokens: 2048,
+            max_tokens: 8192,
             stream: true
         )
         

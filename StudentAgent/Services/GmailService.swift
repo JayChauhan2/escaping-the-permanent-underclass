@@ -41,7 +41,6 @@ public final class GmailService: NSObject, EmailServiceProtocol, ASWebAuthentica
             throw NSError(domain: "GmailService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Gmail Client ID is not configured."])
         }
         
-        // 1. Generate PKCE Verifier & Challenge
         let codeVerifier = generateCodeVerifier()
         let codeChallenge = generateCodeChallenge(from: codeVerifier)
         
@@ -51,7 +50,6 @@ public final class GmailService: NSObject, EmailServiceProtocol, ASWebAuthentica
             throw NSError(domain: "GmailService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid Google OAuth URL."])
         }
         
-        // 2. Launch ASWebAuthenticationSession for Authorization Code
         let authCode: String = try await withCheckedThrowingContinuation { continuation in
             let session = ASWebAuthenticationSession(url: authURL, callbackURLScheme: "com.googleusercontent.apps") { callbackURL, error in
                 if let error = error {
@@ -73,7 +71,6 @@ public final class GmailService: NSObject, EmailServiceProtocol, ASWebAuthentica
             session.start()
         }
         
-        // 3. Exchange Authorization Code for Tokens at https://oauth2.googleapis.com/token
         return try await exchangeCodeForTokens(code: authCode, codeVerifier: codeVerifier, clientID: clientID, redirectURI: redirectURI)
     }
     
@@ -121,7 +118,8 @@ public final class GmailService: NSObject, EmailServiceProtocol, ASWebAuthentica
         UserDefaults.standard.removeObject(forKey: refreshTokenKey)
     }
     
-    public func fetchRecentEmails(hoursBack: Int = 48, maxCount: Int = 20) async throws -> [EmailItem] {
+    // Fetch Recent Emails: Dynamic date query or raw count with no date restriction
+    public func fetchRecentEmails(hoursBack: Int = 0, maxCount: Int = 50) async throws -> [EmailItem] {
         guard let token = accessToken else {
             throw NSError(
                 domain: "GmailService",
@@ -130,7 +128,13 @@ public final class GmailService: NSObject, EmailServiceProtocol, ASWebAuthentica
             )
         }
         
-        let url = URL(string: "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=\(maxCount)&q=newer_than:7d")!
+        var queryParam = ""
+        if hoursBack > 0 {
+            let days = max(1, Int(ceil(Double(hoursBack) / 24.0)))
+            queryParam = "&q=newer_than:\(days)d"
+        }
+        
+        let url = URL(string: "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=\(maxCount)\(queryParam)")!
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         
@@ -162,7 +166,7 @@ public final class GmailService: NSObject, EmailServiceProtocol, ASWebAuthentica
         return results
     }
     
-    public func searchEmails(query: String, maxCount: Int = 15) async throws -> [EmailItem] {
+    public func searchEmails(query: String, maxCount: Int = 25) async throws -> [EmailItem] {
         guard let token = accessToken else {
             throw NSError(
                 domain: "GmailService",
@@ -217,7 +221,6 @@ public final class GmailService: NSObject, EmailServiceProtocol, ASWebAuthentica
         let from = headers.first(where: { $0["name"]?.lowercased() == "from" })?["value"] ?? "Unknown"
         let snippet = dict["snippet"] as? String ?? ""
         
-        // Extract Full Body (decode base64url from parts or body)
         let fullBody = extractBody(from: payload) ?? snippet
         
         return EmailItem(

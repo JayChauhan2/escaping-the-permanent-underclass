@@ -47,11 +47,11 @@ public final class AgentOrchestrator: ObservableObject {
                     "properties": AnyCodable([
                         "hours_back": [
                             "type": "integer",
-                            "description": "Number of hours back to check"
+                            "description": "Number of hours back to check. Use 0 for no time restriction (fetch by raw count)."
                         ],
                         "max_count": [
                             "type": "integer",
-                            "description": "Maximum number of emails to retrieve (e.g. 10, 25, or 50)"
+                            "description": "Maximum number of emails to retrieve (e.g. 20, 50, or 100)"
                         ]
                     ]),
                     "required": AnyCodable([])
@@ -66,6 +66,10 @@ public final class AgentOrchestrator: ObservableObject {
                         "query": [
                             "type": "string",
                             "description": "Search keyword or query"
+                        ],
+                        "max_count": [
+                            "type": "integer",
+                            "description": "Maximum number of matching emails to retrieve"
                         ]
                     ]),
                     "required": AnyCodable(["query"])
@@ -236,7 +240,8 @@ public final class AgentOrchestrator: ObservableObject {
             DeepSeekMessage(role: "system", content: systemPrompt)
         ]
         
-        for msg in history.suffix(8) {
+        // Full conversation memory: NO SUFFIX CAPPING
+        for msg in history {
             apiMessages.append(DeepSeekMessage(role: msg.roleRaw, content: msg.content))
         }
         
@@ -245,8 +250,9 @@ public final class AgentOrchestrator: ObservableObject {
             var collectedEmails: [EmailItem] = []
             var streamingMsg: ChatMessageItem? = nil
             
+            // Expanded tool execution loop to 10 iterations
             var currentTurn = 0
-            while currentTurn < 3 {
+            while currentTurn < 10 {
                 if Task.isCancelled { break }
                 currentTurn += 1
                 
@@ -384,8 +390,8 @@ public final class AgentOrchestrator: ObservableObject {
         
         switch name {
         case "fetch_recent_emails":
-            let hours = args["hours_back"] as? Int ?? 48
-            let maxCount = args["max_count"] as? Int ?? 20
+            let hours = args["hours_back"] as? Int ?? 0
+            let maxCount = args["max_count"] as? Int ?? 50
             let emails = try await activeEmailService.fetchRecentEmails(hoursBack: hours, maxCount: maxCount)
             collectedEmails.append(contentsOf: emails)
             
@@ -396,7 +402,7 @@ public final class AgentOrchestrator: ObservableObject {
             
         case "search_emails":
             let query = args["query"] as? String ?? ""
-            let maxCount = args["max_count"] as? Int ?? 15
+            let maxCount = args["max_count"] as? Int ?? 25
             let emails = try await activeEmailService.searchEmails(query: query, maxCount: maxCount)
             collectedEmails.append(contentsOf: emails)
             
