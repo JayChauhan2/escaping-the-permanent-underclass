@@ -21,9 +21,9 @@ public final class ChatMessageItem: Identifiable, Codable, ObservableObject {
     public var conversationId: String
     
     // Action and email payloads
-    public var rawToolCallsJSON: String?
-    public var rawProposedActionsJSON: String?
-    public var rawEmailDigestsJSON: String?
+    @Published public var rawToolCallsJSON: String?
+    @Published public var rawProposedActionsJSON: String?
+    @Published public var rawEmailDigestsJSON: String?
     
     // UI Streaming state
     @Published public var isStreaming: Bool = false
@@ -84,13 +84,14 @@ public final class ChatMessageItem: Identifiable, Codable, ObservableObject {
         try container.encodeIfPresent(rawEmailDigestsJSON, forKey: .rawEmailDigestsJSON)
     }
     
-    // Decode proposed calendar actions
+    // Decode/encode proposed calendar actions
     public var proposedActions: [CalendarAction] {
         get {
             guard let json = rawProposedActionsJSON, let data = json.data(using: .utf8) else { return [] }
             return (try? JSONDecoder().decode([CalendarAction].self, from: data)) ?? []
         }
         set {
+            objectWillChange.send()
             if let data = try? JSONEncoder().encode(newValue), let str = String(data: data, encoding: .utf8) {
                 rawProposedActionsJSON = str
             } else {
@@ -99,13 +100,14 @@ public final class ChatMessageItem: Identifiable, Codable, ObservableObject {
         }
     }
     
-    // Decode email items
+    // Decode/encode email items
     public var emailDigests: [EmailItem] {
         get {
             guard let json = rawEmailDigestsJSON, let data = json.data(using: .utf8) else { return [] }
             return (try? JSONDecoder().decode([EmailItem].self, from: data)) ?? []
         }
         set {
+            objectWillChange.send()
             if let data = try? JSONEncoder().encode(newValue), let str = String(data: data, encoding: .utf8) {
                 rawEmailDigestsJSON = str
             } else {

@@ -80,18 +80,17 @@ public final class ChatStorage: ObservableObject {
         newStatus: CalendarActionStatus,
         eventId: String? = nil
     ) {
-        guard var msgs = messagesByConversation[conversationId] else { return }
+        guard let msgs = messagesByConversation[conversationId] else { return }
         for i in 0..<msgs.count {
             if msgs[i].id == messageId {
-                for j in 0..<msgs[i].proposedActions.count {
-                    if msgs[i].proposedActions[j].id == actionId {
-                        msgs[i].proposedActions[j].status = newStatus
-                        msgs[i].proposedActions[j].createdEventIdentifier = eventId
-                    }
+                var actions = msgs[i].proposedActions
+                if let idx = actions.firstIndex(where: { $0.id == actionId }) {
+                    actions[idx].status = newStatus
+                    actions[idx].createdEventIdentifier = eventId
+                    msgs[i].proposedActions = actions
                 }
             }
         }
-        messagesByConversation[conversationId] = msgs
         saveData()
     }
     

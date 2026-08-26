@@ -10,16 +10,18 @@ import UIKit
 
 public struct ActionCardView: View {
     public let action: CalendarAction
-    public let message: ChatMessageItem
+    @ObservedObject public var message: ChatMessageItem
     @ObservedObject public var orchestrator: AgentOrchestrator
     
     @State private var isCommitting: Bool = false
+    @State private var currentStatus: CalendarActionStatus
     @State private var errorMessage: String?
     
     public init(action: CalendarAction, message: ChatMessageItem, orchestrator: AgentOrchestrator) {
         self.action = action
         self.message = message
         self.orchestrator = orchestrator
+        self._currentStatus = State(initialValue: action.status)
     }
     
     public var body: some View {
@@ -64,8 +66,8 @@ public struct ActionCardView: View {
                 }
             }
             
-            // Action Button
-            if action.status == .proposed {
+            // 1-Tap Action Button (Disappears instantaneously on confirmation)
+            if currentStatus == .proposed {
                 Button(action: commitAction) {
                     HStack(spacing: 6) {
                         if isCommitting {
@@ -87,6 +89,7 @@ public struct ActionCardView: View {
                 .buttonStyle(GrokPressableStyle(scale: 0.96))
                 .disabled(isCommitting)
                 .padding(.top, 4)
+                .transition(.opacity.combined(with: .scale))
             }
             
             if let error = errorMessage {
@@ -100,13 +103,19 @@ public struct ActionCardView: View {
         .cornerRadius(16)
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(action.status == .confirmed ? Color.grokSuccess.opacity(0.4) : Color.grokDivider, lineWidth: 1)
+                .strokeBorder(currentStatus == .confirmed ? Color.grokSuccess.opacity(0.4) : Color.grokDivider, lineWidth: 1)
         )
+        .animation(.spring(response: 0.28, dampingFraction: 0.82), value: currentStatus)
+        .onChange(of: action.status) { newStatus in
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                currentStatus = newStatus
+            }
+        }
     }
     
     @ViewBuilder
     private var statusBadge: some View {
-        switch action.status {
+        switch currentStatus {
         case .proposed:
             Text("Pending Confirmation")
                 .font(.system(size: 10, weight: .bold))
@@ -155,6 +164,9 @@ public struct ActionCardView: View {
                 #if canImport(UIKit)
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                 #endif
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                    currentStatus = .confirmed
+                }
             } catch {
                 errorMessage = error.localizedDescription
                 #if canImport(UIKit)
