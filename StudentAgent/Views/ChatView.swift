@@ -18,7 +18,7 @@ public struct ChatView: View {
     
     @State private var inputText: String = ""
     @State private var showingSettings: Bool = false
-    @State private var isTriageMode: Bool = false
+    @State private var activeMode: AgentMode = .executive
     @FocusState private var isInputFocused: Bool
     
     public init(
@@ -129,30 +129,30 @@ public struct ChatView: View {
         HStack(spacing: 0) {
             Button(action: {
                 withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
-                    isTriageMode = false
+                    activeMode = .executive
                 }
             }) {
                 Text("Executive")
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(!isTriageMode ? Color.black : Color.grokTextSecondary)
+                    .foregroundColor(activeMode == .executive ? Color.black : Color.grokTextSecondary)
                     .padding(.vertical, 5)
                     .padding(.horizontal, 12)
-                    .background(!isTriageMode ? Color.grokAccentWhite : Color.clear)
+                    .background(activeMode == .executive ? Color.grokAccentWhite : Color.clear)
                     .clipShape(Capsule())
             }
             .buttonStyle(.plain)
             
             Button(action: {
                 withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
-                    isTriageMode = true
+                    activeMode = .triage
                 }
             }) {
                 Text("Triage")
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(isTriageMode ? Color.grokLinkBlue : Color.grokTextSecondary)
+                    .foregroundColor(activeMode == .triage ? Color.grokLinkBlue : Color.grokTextSecondary)
                     .padding(.vertical, 5)
                     .padding(.horizontal, 12)
-                    .background(isTriageMode ? Color.grokSurface1 : Color.clear)
+                    .background(activeMode == .triage ? Color.grokSurface1 : Color.clear)
                     .clipShape(Capsule())
             }
             .buttonStyle(.plain)
@@ -187,7 +187,7 @@ public struct ChatView: View {
                     .font(.system(size: 20, weight: .bold))
                     .foregroundColor(Color.grokTextPrimary)
                 
-                Text("Connected to \(orchestrator.currentProvider.rawValue) • DeepSeek")
+                Text("\(activeMode.rawValue) Mode • \(orchestrator.currentProvider.rawValue)")
                     .font(.system(size: 13))
                     .foregroundColor(Color.grokTextSecondary)
             }
@@ -268,7 +268,8 @@ public struct ChatView: View {
         Task {
             await orchestrator.processUserMessage(
                 text: text,
-                conversationId: conversation.id
+                conversationId: conversation.id,
+                mode: activeMode
             )
         }
     }

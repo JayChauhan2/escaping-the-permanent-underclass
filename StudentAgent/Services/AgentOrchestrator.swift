@@ -6,6 +6,13 @@
 import Foundation
 import SwiftUI
 
+public enum AgentMode: String, CaseIterable, Identifiable {
+    case executive = "Executive"
+    case triage = "Triage"
+    
+    public var id: String { rawValue }
+}
+
 public struct AgentExecutionStep: Identifiable, Equatable {
     public let id = UUID()
     public let icon: String
@@ -18,6 +25,7 @@ public final class AgentOrchestrator: ObservableObject {
     @Published public var isProcessing: Bool = false
     @Published public var currentStep: AgentExecutionStep?
     @Published public var currentProvider: AppConfig.EmailProvider = AppConfig.defaultEmailProvider
+    @Published public var activeMode: AgentMode = .executive
     
     private let deepSeek = DeepSeekService.shared
     private let eventKit = EventKitService.shared
@@ -39,7 +47,7 @@ public final class AgentOrchestrator: ObservableObject {
         return [
             DeepSeekToolDefinition(
                 name: "fetch_recent_emails",
-                description: "Fetches recent student emails from Outlook/Gmail inbox. Use ONLY when user asks to check emails, triage tasks, or find incoming messages.",
+                description: "Fetches recent student emails from Outlook/Gmail inbox.",
                 parameters: [
                     "type": AnyCodable("object"),
                     "properties": AnyCodable([
@@ -124,42 +132,52 @@ public final class AgentOrchestrator: ObservableObject {
         ]
     }
     
-    private var systemPrompt: String {
+    private func generateSystemPrompt(mode: AgentMode) -> String {
         let nowString = ISO8601DateFormatter().string(from: Date())
-        return """
-        You are an intelligent executive student assistant for an undergraduate student on mobile iPhone.
-        Current Local Date & Time: \(nowString).
         
-        CRITICAL RULES:
-        1. CONCISENESS (MOBILE FIRST):
-           - Keep responses ultra-brief, punchy, and structured in bullet points.
-           - No verbose disclaimers, no repeating what the user already knows.
-           - Every word must provide high signal.
-        2. TOOL DISCIPLINE:
-           - For casual greetings (e.g., "hi", "how are you", "what can you do"), respond casually in 1 short sentence. DO NOT call email or calendar tools.
-           - ONLY call `fetch_recent_emails` or `search_emails` when the user asks about emails, tasks, deadlines, advisor, classes, or student gov.
-        3. CALENDAR & REMINDERS:
-           - Never claim an event was added. State that you drafted it for their confirmation (the app UI provides the confirmation buttons).
-        """
+        if mode == .triage {
+            return """
+            You are in TRIAGE MODE for an undergraduate student on iOS.
+            Current Time: \(nowString).
+            
+            YOUR JOB IN TRIAGE MODE:
+            1. Scrutinize student inbox messages ruthlessly.
+            2. Automatically fetch recent emails if needed to identify upcoming deadlines, advisor bookings, urgent I-9 paperwork, or professor announcements.
+            3. Draft proposed Apple Calendar and Reminder actions for every actionable deadline found.
+            4. Keep output in ultra-brief, bulleted lists with urgency ratings (🔴 High, 🟡 Medium, 🟢 Low).
+            """
+        } else {
+            return """
+            You are in EXECUTIVE MODE for an undergraduate student on iOS.
+            Current Time: \(nowString).
+            
+            YOUR JOB IN EXECUTIVE MODE:
+            1. Act as a strategic personal assistant.
+            2. Answer questions, assist with class prep, explain concepts, and draft emails or messages.
+            3. Only call email tools when explicitly asked to look at emails or tasks.
+            4. Keep responses concise, structured, and mobile-friendly.
+            """
+        }
     }
     
     public func processUserMessage(
         text: String,
-        conversationId: String
+        conversationId: String,
+        mode: AgentMode = .executive
     ) async {
         isProcessing = true
+        self.activeMode = mode
         currentStep = AgentExecutionStep(icon: "sparkles", text: "Thinking...")
         
-        debugLogger.log(type: .userPrompt, title: "User Input Received", payload: text)
+        debugLogger.log(type: .userPrompt, title: "User Input (\(mode.rawValue) Mode)", payload: text)
         
-        // 1. Save user message to storage
         let userMsg = ChatMessageItem(role: .user, content: text, conversationId: conversationId)
         storage.addMessage(userMsg)
         
         let history = storage.getMessages(for: conversationId)
         
         var apiMessages: [DeepSeekMessage] = [
-            DeepSeekMessage(role: "system", content: systemPrompt)
+            DeepSeekMessage(role: "system", content: generateSystemPrompt(mode: mode))
         ]
         
         for msg in history.suffix(8) {
