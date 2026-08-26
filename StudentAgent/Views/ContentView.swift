@@ -78,17 +78,14 @@ public struct ContentView: View {
                         let translationX = value.translation.width
                         let translationY = abs(value.translation.height)
                         
-                        // Check horizontal dominance
                         guard abs(translationX) > translationY * 1.1 else { return }
                         
                         if !showingSidebar {
-                            // Open swipe: Allowed anywhere across the left 65% of screen
                             if startX < geometry.size.width * 0.65 && translationX > 0 {
                                 isDragging = true
                                 dragOffset = min(sidebarWidth, translationX)
                             }
                         } else {
-                            // Close swipe: Allowed 100% anywhere on entire screen
                             if translationX < 0 {
                                 isDragging = true
                                 dragOffset = translationX
@@ -103,14 +100,12 @@ public struct ContentView: View {
                         let predictedX = value.predictedEndTranslation.width
                         
                         if showingSidebar {
-                            // Swipe left to close anywhere
                             if translationX < -40 || predictedX < -80 {
                                 closeSidebar()
                             } else {
                                 openSidebar()
                             }
                         } else {
-                            // Swipe right to open
                             if translationX > 40 || predictedX > 80 {
                                 openSidebar()
                             } else {
@@ -163,7 +158,7 @@ public struct ContentView: View {
         VStack(alignment: .leading, spacing: 0) {
             Color.clear.frame(height: geometry.safeAreaInsets.top)
             
-            // Header: Title & New Chat
+            // Header: Title & Top New Chat
             HStack {
                 Text("Conversations")
                     .font(.system(size: 20, weight: .bold))
@@ -244,27 +239,47 @@ public struct ContentView: View {
             Divider()
                 .background(Color.grokDivider)
             
-            // Bottom Settings Bar
-            Button(action: {
-                closeSidebar()
-                showingSettings = true
-            }) {
-                HStack(spacing: 10) {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: 16))
-                        .foregroundColor(Color.grokTextPrimary)
-                    
-                    Text("Settings & Telemetry")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(Color.grokTextPrimary)
-                    
-                    Spacer()
+            // Bottom Bar: Settings + Thumb-Friendly New Chat Button
+            HStack(spacing: 8) {
+                Button(action: {
+                    closeSidebar()
+                    showingSettings = true
+                }) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "gearshape")
+                            .font(.system(size: 16))
+                            .foregroundColor(Color.grokTextPrimary)
+                        
+                        Text("Settings & Telemetry")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Color.grokTextPrimary)
+                        
+                        Spacer()
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(Color.grokSurface2)
+                    .cornerRadius(10)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
-                .background(Color.grokSurface1)
+                .buttonStyle(GrokPressableStyle())
+                
+                // Bottom Thumb-Friendly New Chat Button
+                Button(action: {
+                    closeSidebar()
+                    createNewChat()
+                }) {
+                    Image(systemName: "square.and.pencil")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(Color.grokTextPrimary)
+                        .padding(10)
+                        .background(Color.grokSurface2)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(GrokPressableStyle())
             }
-            .buttonStyle(GrokPressableStyle())
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(Color.grokSurface1)
             
             Color.clear.frame(height: geometry.safeAreaInsets.bottom)
         }
