@@ -26,8 +26,9 @@ public struct SettingsView: View {
         NavigationStack {
             Form {
                 // MARK: - 1. DeepSeek API
-                Section(header: Text("DeepSeek API Configuration"), footer: Text("You can also set your API key in Secrets.swift.")) {
+                Section(header: Text("DEEPSEEK API CONFIGURATION").foregroundColor(Color.grokTextSecondary)) {
                     SecureField("Paste DeepSeek API Key", text: $apiKeyInput)
+                        .foregroundColor(Color.grokTextPrimary)
                     
                     Picker("Model", selection: $selectedModel) {
                         Text("DeepSeek Chat (V3)").tag("deepseek-chat")
@@ -40,11 +41,11 @@ public struct SettingsView: View {
                         UINotificationFeedbackGenerator().notificationOccurred(.success)
                         #endif
                     }
-                    .foregroundColor(.blue)
+                    .foregroundColor(Color.grokLinkBlue)
                 }
                 
                 // MARK: - 2. Email Integration
-                Section(header: Text("Student Email Source"), footer: Text("Choose where the agent fetches your emails. If you forwarded your student Outlook to Gmail, choose Gmail.")) {
+                Section(header: Text("STUDENT EMAIL SOURCE").foregroundColor(Color.grokTextSecondary)) {
                     Picker("Email Provider", selection: $orchestrator.currentProvider) {
                         ForEach(AppConfig.EmailProvider.allCases) { provider in
                             Text(provider.rawValue).tag(provider)
@@ -56,7 +57,7 @@ public struct SettingsView: View {
                             Text("Status:")
                             Spacer()
                             Text(OutlookService.shared.isAuthenticated ? "Connected ✓" : "Not Authenticated")
-                                .foregroundColor(OutlookService.shared.isAuthenticated ? .green : .secondary)
+                                .foregroundColor(OutlookService.shared.isAuthenticated ? Color.grokSuccess : Color.grokTextSecondary)
                         }
                         
                         Button("Sign In to Student Outlook (Microsoft 365)") {
@@ -64,12 +65,13 @@ public struct SettingsView: View {
                                 _ = try? await OutlookService.shared.authenticate()
                             }
                         }
+                        .foregroundColor(Color.grokLinkBlue)
                     } else if orchestrator.currentProvider == .gmail {
                         HStack {
                             Text("Status:")
                             Spacer()
                             Text(GmailService.shared.isAuthenticated ? "Connected ✓" : "Not Authenticated")
-                                .foregroundColor(GmailService.shared.isAuthenticated ? .green : .secondary)
+                                .foregroundColor(GmailService.shared.isAuthenticated ? Color.grokSuccess : Color.grokTextSecondary)
                         }
                         
                         Button("Sign In to Google (Gmail)") {
@@ -77,45 +79,44 @@ public struct SettingsView: View {
                                 _ = try? await GmailService.shared.authenticate()
                             }
                         }
+                        .foregroundColor(Color.grokLinkBlue)
                     } else {
                         Text("Using sample student inbox (Advisor, I-9, Student Gov, Syllabus).")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color.grokTextSecondary)
                     }
                 }
                 
                 // MARK: - 3. Apple Calendar & EventKit
-                Section(header: Text("Apple Calendar & Reminders"), footer: Text("The agent requires your explicit confirmation before adding events to Apple Calendar or Reminders.")) {
+                Section(header: Text("APPLE CALENDAR & REMINDERS").foregroundColor(Color.grokTextSecondary)) {
                     Button("Check / Request Calendar Permission") {
                         Task {
                             _ = await EventKitService.shared.requestCalendarAccess()
                             _ = await EventKitService.shared.requestRemindersAccess()
                         }
                     }
+                    .foregroundColor(Color.grokLinkBlue)
                 }
                 
                 // MARK: - 4. Developer Telemetry & Debug Inspector
-                Section(header: Text("Developer Debugging & Telemetry"), footer: Text("View live DeepSeek prompt payloads, raw AI completions, and tool execution logs for debugging.")) {
+                Section(header: Text("DEVELOPER DEBUGGING & TELEMETRY").foregroundColor(Color.grokTextSecondary)) {
                     NavigationLink {
                         DebugLogsView()
                     } label: {
                         HStack {
                             Image(systemName: "ladybug.fill")
-                                .foregroundColor(.purple)
+                                .foregroundColor(Color.grokLinkBlue)
                             Text("View AI Telemetry & Raw Logs")
                             Spacer()
                             Text("\(DebugLogger.shared.logs.count)")
                                 .font(.caption.weight(.bold))
-                                .foregroundColor(.secondary)
+                                .foregroundColor(Color.grokTextSecondary)
                         }
                     }
                 }
                 
                 // MARK: - 5. Memory & Backup (Survives Xcode Expiry)
-                Section(
-                    header: Text("Data Memory & Backups"),
-                    footer: Text("Chat history is automatically saved to the Files app (Documents/StudentAgent_Backups). Even if your Xcode 7-day developer certificate expires, your data is never lost.")
-                ) {
+                Section(header: Text("DATA MEMORY & BACKUPS").foregroundColor(Color.grokTextSecondary)) {
                     Button(action: {
                         storage.saveData()
                         showingExportSuccess = true
@@ -125,6 +126,7 @@ public struct SettingsView: View {
                             Text("Export / Save Full Backup (.json)")
                         }
                     }
+                    .foregroundColor(Color.grokLinkBlue)
                     
                     Button(action: {
                         storage.loadData()
@@ -135,14 +137,17 @@ public struct SettingsView: View {
                             Text("Reload Chat History from Disk")
                         }
                     }
+                    .foregroundColor(Color.grokLinkBlue)
                     
                     if let url = BackupService.shared.getBackupFileURL() {
                         Text("Backup File: \(url.lastPathComponent)")
                             .font(.caption2)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(Color.grokTextSecondary)
                     }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Color.grokCanvas.ignoresSafeArea())
             .navigationTitle("Settings")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -152,6 +157,7 @@ public struct SettingsView: View {
                     Button("Done") {
                         dismiss()
                     }
+                    .foregroundColor(Color.grokAccentWhite)
                 }
             }
             .alert("Backup Exported!", isPresented: $showingExportSuccess) {
@@ -165,5 +171,6 @@ public struct SettingsView: View {
                 Text("Chat history reloaded successfully from local disk storage.")
             }
         }
+        .preferredColorScheme(.dark)
     }
 }

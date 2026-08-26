@@ -13,80 +13,81 @@ public struct EmailDigestView: View {
     }
     
     public var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 6) {
-                Image(systemName: "envelope.badge.fill")
-                    .foregroundColor(.indigo)
-                Text("Relevant Emails Referenced (\(emails.count))")
-                    .font(.caption.weight(.bold))
-                    .foregroundColor(.secondary)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 5) {
+                Image(systemName: "envelope.badge")
+                    .foregroundColor(Color.grokLinkBlue)
+                    .font(.system(size: 12))
+                Text("REFERENCED INBOX MESSAGES (\(emails.count))")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(Color.grokTextSecondary)
             }
+            .padding(.bottom, 2)
             
             ForEach(emails) { email in
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 5) {
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(email.senderName)
-                                .font(.caption.weight(.semibold))
-                                .foregroundColor(.secondary)
+                            HStack(spacing: 4) {
+                                Text(email.senderName)
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(Color.grokTextPrimary)
+                                    .lineLimit(1)
+                                
+                                Image(systemName: "checkmark.seal.fill")
+                                    .foregroundColor(Color.grokLinkBlue)
+                                    .font(.system(size: 11))
+                            }
                             
                             Text(email.subject)
-                                .font(.subheadline.weight(.medium))
-                                .foregroundColor(.primary)
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(Color.grokTextPrimary)
+                                .lineLimit(2)
                         }
                         
                         Spacer()
                         
-                        Text(email.urgency.rawValue)
-                            .font(.system(size: 10, weight: .bold))
+                        Text(email.urgency.rawValue.uppercased())
+                            .font(.system(size: 9, weight: .bold))
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Color(hex: email.urgency.badgeColorHex).opacity(0.15))
-                            .foregroundColor(Color(hex: email.urgency.badgeColorHex))
+                            .background(urgencyColor(email.urgency).opacity(0.18))
+                            .foregroundColor(urgencyColor(email.urgency))
                             .clipShape(Capsule())
                     }
                     
                     if !email.bodySnippet.isEmpty {
                         Text(email.bodySnippet)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                            .font(.system(size: 12))
+                            .foregroundColor(Color.grokTextSecondary)
                             .lineLimit(2)
                     }
                 }
-                .padding(10)
-                .background(Color.primary.opacity(0.05))
-                .cornerRadius(10)
+                .padding(12)
+                .background(Color.grokSurface2)
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(Color.grokDivider, lineWidth: 1)
+                )
             }
         }
         .padding(12)
-        .background(Color.primary.opacity(0.03))
-        .cornerRadius(12)
-    }
-}
-
-// Color Hex Extension
-extension Color {
-    init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        let a, r, g, b: UInt64
-        switch hex.count {
-        case 3: // RGB (12-bit)
-            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
-        case 6: // RGB (24-bit)
-            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
-        case 8: // ARGB (32-bit)
-            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
-        default:
-            (a, r, g, b) = (1, 1, 1, 0)
-        }
-        self.init(
-            .sRGB,
-            red: Double(r) / 255,
-            green: Double(g) / 255,
-            blue: Double(b) / 255,
-            opacity: Double(a) / 255
+        .background(Color.grokSurface1)
+        .cornerRadius(14)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(Color.grokDivider, lineWidth: 1)
         )
+    }
+    
+    private func urgencyColor(_ urgency: EmailUrgency) -> Color {
+        switch urgency {
+        case .urgent: return Color.grokError
+        case .course: return Color.grokLinkBlue
+        case .opportunity: return Color.grokSuccess
+        case .newsletter: return Color.grokWarning
+        case .general: return Color.grokTextSecondary
+        }
     }
 }

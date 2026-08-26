@@ -13,13 +13,24 @@ public struct ChatView: View {
     @ObservedObject public var orchestrator: AgentOrchestrator
     @ObservedObject private var storage = ChatStorage.shared
     
+    public var onOpenSidebar: () -> Void
+    public var onNewChat: () -> Void
+    
     @State private var inputText: String = ""
     @State private var showingSettings: Bool = false
+    @State private var isTriageMode: Bool = false
     @FocusState private var isInputFocused: Bool
     
-    public init(conversation: ConversationItem, orchestrator: AgentOrchestrator) {
+    public init(
+        conversation: ConversationItem,
+        orchestrator: AgentOrchestrator,
+        onOpenSidebar: @escaping () -> Void = {},
+        onNewChat: @escaping () -> Void = {}
+    ) {
         self.conversation = conversation
         self.orchestrator = orchestrator
+        self.onOpenSidebar = onOpenSidebar
+        self.onNewChat = onNewChat
     }
     
     private var messages: [ChatMessageItem] {
@@ -28,10 +39,40 @@ public struct ChatView: View {
     
     public var body: some View {
         VStack(spacing: 0) {
+            // Grok Top Bar
+            HStack(spacing: 12) {
+                Button(action: onOpenSidebar) {
+                    Image(systemName: "line.3.horizontal")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(Color.grokTextPrimary)
+                        .frame(width: 36, height: 36)
+                }
+                .buttonStyle(GrokPressableStyle())
+                
+                Spacer()
+                
+                // Grok Center Mode Capsule
+                modeTogglePill
+                
+                Spacer()
+                
+                Button(action: onNewChat) {
+                    Image(systemName: "square.and.pencil")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(Color.grokTextPrimary)
+                        .frame(width: 36, height: 36)
+                }
+                .buttonStyle(GrokPressableStyle())
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
+            .background(Color.grokCanvas)
+            .overlay(Divider().background(Color.grokDivider), alignment: .bottom)
+            
             // Messages Scroll Area
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(spacing: 12) {
+                    LazyVStack(spacing: 14) {
                         if messages.isEmpty {
                             emptyStateView
                         } else {
@@ -41,7 +82,7 @@ public struct ChatView: View {
                             }
                         }
                     }
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 12)
                 }
                 #if os(iOS)
                 .scrollDismissesKeyboard(.interactively)
@@ -55,146 +96,130 @@ public struct ChatView: View {
                 }
                 .onChange(of: messages.count) { _ in
                     if let last = messages.last {
-                        withAnimation {
+                        withAnimation(.easeOut(duration: 0.25)) {
                             proxy.scrollTo(last.id, anchor: .bottom)
                         }
                     }
                 }
             }
             
-            // Live Step Pill (Visual Progress Indicator)
+            // Live Thinking / Step Progress Pill
             if let step = orchestrator.currentStep {
-                HStack(spacing: 8) {
-                    Image(systemName: step.icon)
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(.blue)
-                    
-                    Text(step.text)
-                        .font(.caption.weight(.semibold))
-                        .foregroundColor(.primary)
-                    
-                    Spacer()
-                    
-                    ProgressView()
-                        .scaleEffect(0.7)
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(Color.blue.opacity(0.12))
-                .cornerRadius(12)
-                .padding(.horizontal, 12)
-                .padding(.bottom, 6)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                GrokThinkingPill(step: step)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 6)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
             
-            // Bottom Input Bar
-            HStack(spacing: 10) {
-                TextField("Ask your student agent...", text: $inputText, axis: .vertical)
-                    .focused($isInputFocused)
-                    .lineLimit(1...4)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 9)
-                    .background(Color.primary.opacity(0.06))
-                    .cornerRadius(20)
-                
-                Button(action: sendMessage) {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 32))
-                        .foregroundColor(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || orchestrator.isProcessing ? .gray.opacity(0.4) : .blue)
-                }
-                .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || orchestrator.isProcessing)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Color.primary.opacity(0.02))
-            .overlay(Divider(), alignment: .top)
+            // Grok Prompt Bar
+            GrokPromptBar(
+                text: $inputText,
+                isProcessing: orchestrator.isProcessing,
+                onSend: sendMessage
+            )
         }
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-        #endif
-        .toolbar {
-            // Principal: Title + DeepSeek status in top navigation bar next to back button
-            ToolbarItem(placement: .principal) {
-                VStack(spacing: 1) {
-                    Text(conversation.title)
-                        .font(.subheadline.weight(.bold))
-                        .lineLimit(1)
-                    
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(Color.green)
-                            .frame(width: 5, height: 5)
-                        Text("DeepSeek Active • \(orchestrator.currentProvider.rawValue.prefix(12))...")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-            
-            ToolbarItem(placement: .primaryAction) {
-                Button(action: { showingSettings = true }) {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: 16))
-                }
-            }
-        }
+        .background(Color.grokCanvas.ignoresSafeArea())
         .sheet(isPresented: $showingSettings) {
             SettingsView(orchestrator: orchestrator)
         }
     }
     
-    private var emptyStateView: some View {
-        VStack(spacing: 14) {
-            Spacer(minLength: 20)
+    // Grok Mode Toggle Pill
+    private var modeTogglePill: some View {
+        HStack(spacing: 0) {
+            Button(action: {
+                withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
+                    isTriageMode = false
+                }
+            }) {
+                Text("Executive")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(!isTriageMode ? Color.black : Color.grokTextSecondary)
+                    .padding(.vertical, 5)
+                    .padding(.horizontal, 12)
+                    .background(!isTriageMode ? Color.grokAccentWhite : Color.clear)
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
             
+            Button(action: {
+                withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
+                    isTriageMode = true
+                }
+            }) {
+                Text("Triage")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(isTriageMode ? Color.grokLinkBlue : Color.grokTextSecondary)
+                    .padding(.vertical, 5)
+                    .padding(.horizontal, 12)
+                    .background(isTriageMode ? Color.grokSurface1 : Color.clear)
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(3)
+        .background(Color.grokSurface1)
+        .clipShape(Capsule())
+        .overlay(
+            Capsule().strokeBorder(Color.grokDivider, lineWidth: 1)
+        )
+    }
+    
+    // Minimalist Grok-style empty canvas
+    private var emptyStateView: some View {
+        VStack(spacing: 16) {
+            Spacer(minLength: 40)
+            
+            // Grok Monogram / Logo
             ZStack {
                 Circle()
-                    .fill(Color.blue.opacity(0.12))
-                    .frame(width: 60, height: 60)
+                    .fill(Color.grokSurface1)
+                    .frame(width: 64, height: 64)
+                    .overlay(Circle().strokeBorder(Color.grokDivider, lineWidth: 1))
                 
-                Image(systemName: "sparkles")
-                    .font(.system(size: 26))
-                    .foregroundColor(.blue)
+                Image(systemName: "graduationcap")
+                    .font(.system(size: 26, weight: .bold))
+                    .foregroundColor(Color.grokTextPrimary)
             }
             
             VStack(spacing: 4) {
-                Text("Student Executive Agent")
-                    .font(.headline)
+                Text("Student Agent")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(Color.grokTextPrimary)
                 
-                Text("Tap a quick chip below or ask to triage your emails.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
+                Text("Connected to \(orchestrator.currentProvider.rawValue) • DeepSeek")
+                    .font(.system(size: 13))
+                    .foregroundColor(Color.grokTextSecondary)
             }
             
             // Suggestion Chips
             VStack(spacing: 8) {
                 promptChip(
-                    title: "🔴 Triage Today's Urgent Emails",
-                    subtitle: "Advisor links, I-9 form, urgent tasks",
+                    title: "Triage Today's Urgent Emails",
+                    detail: "Find advisor links, I-9 form, deadlines",
                     prompt: "Check my student emails from the last 24 hours. Summarize high urgency action items, course logistics, and club news in bullet points."
                 )
                 
                 promptChip(
-                    title: "📅 Extract Deadlines to Schedule",
-                    subtitle: "Proposes Apple Calendar events with confirmation",
+                    title: "Extract Deadlines to Apple Calendar",
+                    detail: "Drafts calendar events with 1-tap confirmation",
                     prompt: "Look through recent emails for upcoming deadlines or advising meetings and propose calendar events."
                 )
                 
                 promptChip(
-                    title: "💼 Student Gov Tasks",
-                    subtitle: "Filter for website updates & I-9 forms",
+                    title: "Student Government Tasks",
+                    detail: "Website fixes, payroll forms, outreach",
                     prompt: "Search my emails for Student Government tasks, website updates, or I-9 paperwork and tell me what actions I need to take."
                 )
             }
             .padding(.horizontal, 16)
+            .padding(.top, 12)
             
-            Spacer(minLength: 20)
+            Spacer(minLength: 40)
         }
     }
     
-    private func promptChip(title: String, subtitle: String, prompt: String) -> some View {
+    private func promptChip(title: String, detail: String, prompt: String) -> some View {
         Button(action: {
             inputText = prompt
             sendMessage()
@@ -202,24 +227,26 @@ public struct ChatView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundColor(.primary)
-                    Text(subtitle)
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(Color.grokTextPrimary)
+                    Text(detail)
+                        .font(.system(size: 12))
+                        .foregroundColor(Color.grokTextSecondary)
                 }
                 Spacer()
-                Image(systemName: "arrow.right.circle")
-                    .foregroundColor(.blue)
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(Color.grokTextSecondary)
             }
-            .padding(10)
-            .background(Color.primary.opacity(0.04))
-            .cornerRadius(12)
+            .padding(12)
+            .background(Color.grokSurface1)
+            .cornerRadius(14)
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.gray.opacity(0.15), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(Color.grokDivider, lineWidth: 1)
             )
         }
+        .buttonStyle(GrokPressableStyle())
     }
     
     private func sendMessage() {

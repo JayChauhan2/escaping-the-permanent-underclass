@@ -14,7 +14,7 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "8FB76C3ADF1E4AA1B91DA0C6"
+               BlueprintIdentifier = "051E70D5F1F74589B569A3B0"
                BuildableName = "StudentAgent.app"
                BlueprintName = "StudentAgent"
                ReferencedContainer = "container:StudentAgent.xcodeproj">
@@ -44,7 +44,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "8FB76C3ADF1E4AA1B91DA0C6"
+            BlueprintIdentifier = "051E70D5F1F74589B569A3B0"
             BuildableName = "StudentAgent.app"
             BlueprintName = "StudentAgent"
             ReferencedContainer = "container:StudentAgent.xcodeproj">
@@ -61,7 +61,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "8FB76C3ADF1E4AA1B91DA0C6"
+            BlueprintIdentifier = "051E70D5F1F74589B569A3B0"
             BuildableName = "StudentAgent.app"
             BlueprintName = "StudentAgent"
             ReferencedContainer = "container:StudentAgent.xcodeproj">

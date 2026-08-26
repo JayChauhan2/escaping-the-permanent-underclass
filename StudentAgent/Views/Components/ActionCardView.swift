@@ -24,15 +24,15 @@ public struct ActionCardView: View {
     
     public var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            // Header
+            // Header: Category Icon + Status Pill
             HStack(spacing: 6) {
                 Image(systemName: action.type == .calendarEvent ? "calendar.badge.clock" : "checklist")
-                    .foregroundColor(action.type == .calendarEvent ? .blue : .orange)
-                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(action.type == .calendarEvent ? Color.grokLinkBlue : Color.grokWarning)
+                    .font(.system(size: 14, weight: .semibold))
                 
-                Text(action.type == .calendarEvent ? "Proposed Calendar Event" : "Proposed Reminder")
-                    .font(.caption.weight(.bold))
-                    .foregroundColor(.secondary)
+                Text(action.type == .calendarEvent ? "CALENDAR EVENT" : "APPLE REMINDER")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(Color.grokTextSecondary)
                 
                 Spacer()
                 
@@ -40,109 +40,107 @@ public struct ActionCardView: View {
             }
             
             // Title & Info
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(action.title)
-                    .font(.headline)
-                    .foregroundColor(.primary)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(Color.grokTextPrimary)
                 
-                HStack(spacing: 4) {
+                HStack(spacing: 5) {
                     Image(systemName: "clock")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 12))
+                        .foregroundColor(Color.grokTextSecondary)
                     
                     Text(formattedDate(action.startDate))
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(Color.grokTextSecondary)
                 }
                 
                 if let notes = action.notes, !notes.isEmpty {
                     Text(notes)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 12))
+                        .foregroundColor(Color.grokTextTertiary)
+                        .lineLimit(2)
                         .padding(.top, 2)
-                        .lineLimit(3)
                 }
             }
             
-            // Buttons
+            // Action Button
             if action.status == .proposed {
-                HStack(spacing: 12) {
-                    Button(action: {
-                        commitAction()
-                    }) {
-                        HStack(spacing: 6) {
-                            if isCommitting {
-                                ProgressView()
-                            } else {
-                                Image(systemName: "checkmark.circle.fill")
-                                Text(action.type == .calendarEvent ? "Add to Apple Calendar" : "Add to Reminders")
-                                    .fontWeight(.semibold)
-                            }
+                Button(action: commitAction) {
+                    HStack(spacing: 6) {
+                        if isCommitting {
+                            ProgressView()
+                                .tint(Color.black)
+                        } else {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 13, weight: .bold))
+                            Text(action.type == .calendarEvent ? "Add to Apple Calendar" : "Add to Apple Reminders")
+                                .font(.system(size: 14, weight: .bold))
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 9)
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
                     }
-                    .disabled(isCommitting)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(Color.grokAccentWhite)
+                    .foregroundColor(Color.black)
+                    .clipShape(Capsule())
                 }
+                .buttonStyle(GrokPressableStyle(scale: 0.96))
+                .disabled(isCommitting)
                 .padding(.top, 4)
             }
             
             if let error = errorMessage {
                 Text("⚠️ \(error)")
                     .font(.caption)
-                    .foregroundColor(.red)
+                    .foregroundColor(Color.grokError)
             }
         }
         .padding(14)
-        .background(Color.primary.opacity(0.04))
-        .cornerRadius(14)
+        .background(Color.grokSurface1)
+        .cornerRadius(16)
         .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(action.status == .confirmed ? Color.green.opacity(0.4) : Color.blue.opacity(0.3), lineWidth: 1.5)
+            RoundedRectangle(cornerRadius: 16)
+                .strokeBorder(action.status == .confirmed ? Color.grokSuccess.opacity(0.4) : Color.grokDivider, lineWidth: 1)
         )
-        .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
     }
     
     @ViewBuilder
     private var statusBadge: some View {
         switch action.status {
         case .proposed:
-            Text("Needs Confirmation")
+            Text("Pending Confirmation")
                 .font(.system(size: 10, weight: .bold))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
-                .background(Color.blue.opacity(0.15))
-                .foregroundColor(.blue)
+                .background(Color.grokLinkBlue.opacity(0.15))
+                .foregroundColor(Color.grokLinkBlue)
                 .clipShape(Capsule())
         case .confirmed:
             HStack(spacing: 3) {
                 Image(systemName: "checkmark")
-                Text("Added to Apple \(action.type == .calendarEvent ? "Calendar" : "Reminders")")
+                Text("Scheduled in Apple \(action.type == .calendarEvent ? "Calendar" : "Reminders")")
             }
             .font(.system(size: 10, weight: .bold))
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
-            .background(Color.green.opacity(0.15))
-            .foregroundColor(.green)
+            .background(Color.grokSuccess.opacity(0.15))
+            .foregroundColor(Color.grokSuccess)
             .clipShape(Capsule())
         case .cancelled:
             Text("Dismissed")
                 .font(.system(size: 10, weight: .bold))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
-                .background(Color.gray.opacity(0.15))
-                .foregroundColor(.gray)
+                .background(Color.grokSurface3)
+                .foregroundColor(Color.grokTextSecondary)
                 .clipShape(Capsule())
         case .failed:
             Text("Failed")
                 .font(.system(size: 10, weight: .bold))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
-                .background(Color.red.opacity(0.15))
-                .foregroundColor(.red)
+                .background(Color.grokError.opacity(0.15))
+                .foregroundColor(Color.grokError)
                 .clipShape(Capsule())
         }
     }

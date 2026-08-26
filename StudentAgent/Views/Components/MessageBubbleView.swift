@@ -12,6 +12,8 @@ public struct MessageBubbleView: View {
     public let message: ChatMessageItem
     @ObservedObject public var orchestrator: AgentOrchestrator
     
+    @State private var didCopy = false
+    
     public init(message: ChatMessageItem, orchestrator: AgentOrchestrator) {
         self.message = message
         self.orchestrator = orchestrator
@@ -20,76 +22,91 @@ public struct MessageBubbleView: View {
     public var isUser: Bool { message.role == .user }
     
     public var body: some View {
-        HStack(alignment: .top, spacing: 10) {
+        VStack(alignment: isUser ? .trailing : .leading, spacing: 6) {
             if isUser {
-                Spacer(minLength: 40)
+                // User Bubble: Right-aligned subtle slate container (#1E2126)
+                HStack {
+                    Spacer(minLength: 48)
+                    Text(message.content)
+                        .font(.system(size: 15))
+                        .foregroundColor(Color.grokTextPrimary)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(Color.grokSurface2)
+                        .clipShape(RoundedRectangle(cornerRadius: 18))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18)
+                                .strokeBorder(Color.grokDivider, lineWidth: 0.5)
+                        )
+                }
             } else {
-                // Agent Avatar
-                ZStack {
-                    Circle()
-                        .fill(LinearGradient(colors: [.blue, .purple], startPoint: .topLeading, endPoint: .bottomTrailing))
-                        .frame(width: 32, height: 32)
-                    
-                    Image(systemName: "sparkles")
-                        .foregroundColor(.white)
-                        .font(.system(size: 14, weight: .bold))
-                }
-            }
-            
-            VStack(alignment: isUser ? .trailing : .leading, spacing: 8) {
-                // Message Body
-                Text(LocalizedStringKey(message.content))
-                    .font(.body)
-                    .foregroundColor(isUser ? .white : .primary)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(
-                        isUser
-                            ? Color.blue
-                            : {
-                                #if canImport(UIKit)
-                                return Color(UIColor.secondarySystemGroupedBackground)
-                                #else
-                                return Color.gray.opacity(0.12)
-                                #endif
-                            }()
-                    )
-                    .cornerRadius(18)
-                
-                // Embedded Email Digest if present
-                if !message.emailDigests.isEmpty && !isUser {
-                    EmailDigestView(emails: message.emailDigests)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                
-                // Proposed Calendar Actions if present
-                if !message.proposedActions.isEmpty && !isUser {
-                    VStack(spacing: 8) {
-                        ForEach(message.proposedActions) { action in
-                            ActionCardView(action: action, message: message, orchestrator: orchestrator)
+                // Assistant Transcript: Full width, clean typography on true black
+                VStack(alignment: .leading, spacing: 10) {
+                    // Agent Header Indicator
+                    HStack(spacing: 6) {
+                        Image(systemName: "sparkle")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(Color.grokLinkBlue)
+                        
+                        Text("AGENT")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(Color.grokTextSecondary)
+                        
+                        Spacer()
+                        
+                        // Micro action: Copy response
+                        Button(action: copyResponse) {
+                            Image(systemName: didCopy ? "checkmark" : "doc.on.doc")
+                                .font(.system(size: 12))
+                                .foregroundColor(didCopy ? Color.grokSuccess : Color.grokTextSecondary)
                         }
+                        .buttonStyle(.plain)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 4)
+                    
+                    // Body text
+                    Text(LocalizedStringKey(message.content))
+                        .font(.system(size: 15))
+                        .lineSpacing(4)
+                        .foregroundColor(Color.grokTextPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    
+                    // Embedded Email Citations
+                    if !message.emailDigests.isEmpty {
+                        EmailDigestView(emails: message.emailDigests)
+                            .padding(.top, 2)
+                    }
+                    
+                    // Proposed Action Cards (Calendar & Reminders)
+                    if !message.proposedActions.isEmpty {
+                        VStack(spacing: 8) {
+                            ForEach(message.proposedActions) { action in
+                                ActionCardView(action: action, message: message, orchestrator: orchestrator)
+                            }
+                        }
+                        .padding(.top, 2)
+                    }
                 }
-                
-                // Timestamp
-                Text(formattedTime(message.timestamp))
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal, 4)
-            }
-            
-            if !isUser {
-                Spacer(minLength: 40)
+                .padding(.horizontal, 4)
+                .padding(.bottom, 6)
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 4)
+        .padding(.vertical, 2)
     }
     
-    private func formattedTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
+    private func copyResponse() {
+        #if canImport(UIKit)
+        UIPasteboard.general.string = message.content
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        #endif
+        withAnimation {
+            didCopy = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            withAnimation {
+                didCopy = false
+            }
+        }
     }
 }
