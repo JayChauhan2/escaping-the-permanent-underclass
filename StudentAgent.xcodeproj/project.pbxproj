@@ -1,0 +1,322 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		CB2DBA8294AB42EF8FF36537 /* StudentAgentApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35FC92AA12AF4DE8A18E51E6 /* StudentAgentApp.swift */; };
+		3E0F8AFC26344F96BA9569D1 /* Secrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF4F1BEB7ADB4BCD86B57748 /* Secrets.swift */; };
+		546268AC9B424EFABD81C0DD /* CalendarAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E05A6106B454DB683899D4B /* CalendarAction.swift */; };
+		567FBB4FB74B4244B9347537 /* ChatMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E382535A86404EBDA1026B37 /* ChatMessage.swift */; };
+		1CD4A1991BAA4AD38CCB9E95 /* EmailItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BA28BB3D269449C802DABF2 /* EmailItem.swift */; };
+		D1FAC6B2C493437C887F6FCC /* AgentOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A61C5A8082904A8EADE5D2E2 /* AgentOrchestrator.swift */; };
+		D6658BF63E434C78A2D2E88C /* BackupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D15969418D734950B2DE74E1 /* BackupService.swift */; };
+		29510676D080480FBE12AF71 /* ChatStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E5697BE373E484EB889F4A5 /* ChatStorage.swift */; };
+		D3EB5D139AC34A7B916BB10E /* DebugLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC218211835644F4939B55FA /* DebugLogger.swift */; };
+		B6A4DA0B1CA142B7AFCA69AB /* DeepSeekService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC604963C04D462BAFA2F57E /* DeepSeekService.swift */; };
+		C2FC37EC440742CB824BA8D5 /* EmailServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FA2588940C14341A6974F2F /* EmailServiceProtocol.swift */; };
+		126EDF0F61E04E0184D54759 /* EventKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B7B30FA1D214C648887AFC2 /* EventKitService.swift */; };
+		BE9012FE0FA947CCBF92B08B /* GmailService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F30C1C3861244ECC8ABD8363 /* GmailService.swift */; };
+		B8FE66E8256C4E3A86B17BA3 /* OutlookService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1536359B61EB4C19BF9BE9A3 /* OutlookService.swift */; };
+		570D670DB5A747428D38DA16 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70305926661342A4BC6891DC /* ChatView.swift */; };
+		AB62D82BE62F43798D6C0FE6 /* ActionCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0043C37169C448CA0FEE8A9 /* ActionCardView.swift */; };
+		C04A994340CF41D38066DA49 /* EmailDigestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9868AB5054E441D87A81A64 /* EmailDigestView.swift */; };
+		5F13370BCA354496AD0101A3 /* MessageBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA11D7FBCE3A4F13ADB9BEE2 /* MessageBubbleView.swift */; };
+		0A233DE702D34C1080B524CE /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB337DCF851D4F5C882DD8B2 /* ContentView.swift */; };
+		3040BB76A2C844B1A5CC0B04 /* DebugLogsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 726468376DB04BBDBA15B061 /* DebugLogsView.swift */; };
+		8224A410CDFF4D599990EBF1 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A794E65C348049C0A4C5940A /* SettingsView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		35FC92AA12AF4DE8A18E51E6 /* StudentAgentApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/App/StudentAgentApp.swift"; sourceTree = "<group>"; };
+		CF4F1BEB7ADB4BCD86B57748 /* Secrets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Config/Secrets.swift"; sourceTree = "<group>"; };
+		4E05A6106B454DB683899D4B /* CalendarAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Models/CalendarAction.swift"; sourceTree = "<group>"; };
+		E382535A86404EBDA1026B37 /* ChatMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Models/ChatMessage.swift"; sourceTree = "<group>"; };
+		0BA28BB3D269449C802DABF2 /* EmailItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Models/EmailItem.swift"; sourceTree = "<group>"; };
+		17D3AEFB0F5B48E9A1BCCF08 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "StudentAgent/Resources/Info.plist"; sourceTree = "<group>"; };
+		A61C5A8082904A8EADE5D2E2 /* AgentOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Services/AgentOrchestrator.swift"; sourceTree = "<group>"; };
+		D15969418D734950B2DE74E1 /* BackupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Services/BackupService.swift"; sourceTree = "<group>"; };
+		4E5697BE373E484EB889F4A5 /* ChatStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Services/ChatStorage.swift"; sourceTree = "<group>"; };
+		BC218211835644F4939B55FA /* DebugLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Services/DebugLogger.swift"; sourceTree = "<group>"; };
+		FC604963C04D462BAFA2F57E /* DeepSeekService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Services/DeepSeekService.swift"; sourceTree = "<group>"; };
+		2FA2588940C14341A6974F2F /* EmailServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Services/EmailServiceProtocol.swift"; sourceTree = "<group>"; };
+		1B7B30FA1D214C648887AFC2 /* EventKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Services/EventKitService.swift"; sourceTree = "<group>"; };
+		F30C1C3861244ECC8ABD8363 /* GmailService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Services/GmailService.swift"; sourceTree = "<group>"; };
+		1536359B61EB4C19BF9BE9A3 /* OutlookService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Services/OutlookService.swift"; sourceTree = "<group>"; };
+		70305926661342A4BC6891DC /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Views/ChatView.swift"; sourceTree = "<group>"; };
+		B0043C37169C448CA0FEE8A9 /* ActionCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Views/Components/ActionCardView.swift"; sourceTree = "<group>"; };
+		C9868AB5054E441D87A81A64 /* EmailDigestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Views/Components/EmailDigestView.swift"; sourceTree = "<group>"; };
+		FA11D7FBCE3A4F13ADB9BEE2 /* MessageBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Views/Components/MessageBubbleView.swift"; sourceTree = "<group>"; };
+		AB337DCF851D4F5C882DD8B2 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Views/ContentView.swift"; sourceTree = "<group>"; };
+		726468376DB04BBDBA15B061 /* DebugLogsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Views/DebugLogsView.swift"; sourceTree = "<group>"; };
+		A794E65C348049C0A4C5940A /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Views/SettingsView.swift"; sourceTree = "<group>"; };
+		4FC4DD0BECB240198A8DD2E4 /* StudentAgent.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StudentAgent.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		910D5F6BC96946B9B67231B9 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		BC652CC0C27C4EB7A3EDEE2F /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				4FC4DD0BECB240198A8DD2E4 /* StudentAgent.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		9DDAE9B9B14F4DCC9A37C515 = {
+			isa = PBXGroup;
+			children = (
+				BC652CC0C27C4EB7A3EDEE2F /* Products */,
+				35FC92AA12AF4DE8A18E51E6 /* StudentAgentApp.swift */,
+				CF4F1BEB7ADB4BCD86B57748 /* Secrets.swift */,
+				4E05A6106B454DB683899D4B /* CalendarAction.swift */,
+				E382535A86404EBDA1026B37 /* ChatMessage.swift */,
+				0BA28BB3D269449C802DABF2 /* EmailItem.swift */,
+				17D3AEFB0F5B48E9A1BCCF08 /* Info.plist */,
+				A61C5A8082904A8EADE5D2E2 /* AgentOrchestrator.swift */,
+				D15969418D734950B2DE74E1 /* BackupService.swift */,
+				4E5697BE373E484EB889F4A5 /* ChatStorage.swift */,
+				BC218211835644F4939B55FA /* DebugLogger.swift */,
+				FC604963C04D462BAFA2F57E /* DeepSeekService.swift */,
+				2FA2588940C14341A6974F2F /* EmailServiceProtocol.swift */,
+				1B7B30FA1D214C648887AFC2 /* EventKitService.swift */,
+				F30C1C3861244ECC8ABD8363 /* GmailService.swift */,
+				1536359B61EB4C19BF9BE9A3 /* OutlookService.swift */,
+				70305926661342A4BC6891DC /* ChatView.swift */,
+				B0043C37169C448CA0FEE8A9 /* ActionCardView.swift */,
+				C9868AB5054E441D87A81A64 /* EmailDigestView.swift */,
+				FA11D7FBCE3A4F13ADB9BEE2 /* MessageBubbleView.swift */,
+				AB337DCF851D4F5C882DD8B2 /* ContentView.swift */,
+				726468376DB04BBDBA15B061 /* DebugLogsView.swift */,
+				A794E65C348049C0A4C5940A /* SettingsView.swift */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		8FB76C3ADF1E4AA1B91DA0C6 /* StudentAgent */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 47E31A10A2ED4098A4F16BF2 /* Build configuration list for PBXNativeTarget "StudentAgent" */;
+			buildPhases = (
+				9BD96CCAB7E447FC89F95D2D /* Sources */,
+				910D5F6BC96946B9B67231B9 /* Frameworks */,
+				081F01D1B3504ECE83F02B77 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = StudentAgent;
+			productName = StudentAgent;
+			productReference = 4FC4DD0BECB240198A8DD2E4 /* StudentAgent.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		18A84B54ED4045929E482B1A /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					8FB76C3ADF1E4AA1B91DA0C6 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = 22FF9C3AE67C422795A892A2 /* Build configuration list for PBXProject "StudentAgent" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 9DDAE9B9B14F4DCC9A37C515;
+			productRefGroup = BC652CC0C27C4EB7A3EDEE2F /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				8FB76C3ADF1E4AA1B91DA0C6 /* StudentAgent */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		081F01D1B3504ECE83F02B77 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		9BD96CCAB7E447FC89F95D2D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CB2DBA8294AB42EF8FF36537 /* StudentAgentApp.swift in Sources */,
+				3E0F8AFC26344F96BA9569D1 /* Secrets.swift in Sources */,
+				546268AC9B424EFABD81C0DD /* CalendarAction.swift in Sources */,
+				567FBB4FB74B4244B9347537 /* ChatMessage.swift in Sources */,
+				1CD4A1991BAA4AD38CCB9E95 /* EmailItem.swift in Sources */,
+				D1FAC6B2C493437C887F6FCC /* AgentOrchestrator.swift in Sources */,
+				D6658BF63E434C78A2D2E88C /* BackupService.swift in Sources */,
+				29510676D080480FBE12AF71 /* ChatStorage.swift in Sources */,
+				D3EB5D139AC34A7B916BB10E /* DebugLogger.swift in Sources */,
+				B6A4DA0B1CA142B7AFCA69AB /* DeepSeekService.swift in Sources */,
+				C2FC37EC440742CB824BA8D5 /* EmailServiceProtocol.swift in Sources */,
+				126EDF0F61E04E0184D54759 /* EventKitService.swift in Sources */,
+				BE9012FE0FA947CCBF92B08B /* GmailService.swift in Sources */,
+				B8FE66E8256C4E3A86B17BA3 /* OutlookService.swift in Sources */,
+				570D670DB5A747428D38DA16 /* ChatView.swift in Sources */,
+				AB62D82BE62F43798D6C0FE6 /* ActionCardView.swift in Sources */,
+				C04A994340CF41D38066DA49 /* EmailDigestView.swift in Sources */,
+				5F13370BCA354496AD0101A3 /* MessageBubbleView.swift in Sources */,
+				0A233DE702D34C1080B524CE /* ContentView.swift in Sources */,
+				3040BB76A2C844B1A5CC0B04 /* DebugLogsView.swift in Sources */,
+				8224A410CDFF4D599990EBF1 /* SettingsView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		0EBB8A62A6644F22A69C6ACC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		BBBBA7D2D0C34288B2944DD2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_OPTIMIZATION_LEVEL = s;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		D6B4F8175074488C8A2D4308 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3JB47XFYY5;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = StudentAgent/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jaychauhan.studentagent;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		F194C52E58AE463E902E26A9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3JB47XFYY5;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = StudentAgent/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jaychauhan.studentagent;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		22FF9C3AE67C422795A892A2 /* Build configuration list for PBXProject "StudentAgent" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0EBB8A62A6644F22A69C6ACC /* Debug */,
+				BBBBA7D2D0C34288B2944DD2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		47E31A10A2ED4098A4F16BF2 /* Build configuration list for PBXNativeTarget "StudentAgent" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D6B4F8175074488C8A2D4308 /* Debug */,
+				F194C52E58AE463E902E26A9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+	};
+	rootObject = 18A84B54ED4045929E482B1A /* Project object */;
+}

@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>StudentAgent</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	
+	<!-- Fix Launch Warning: SwiftUI Default Launch Screen -->
+	<key>UILaunchScreen</key>
+	<dict/>
+	
+	<!-- Fix Orientation Warning -->
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+
+	<!-- Apple Calendar Permissions -->
+	<key>NSCalendarsUsageDescription</key>
+	<string>StudentAgent drafts and adds academic deadlines, advisor meetings, and class schedules directly to your Apple Calendar with your confirmation.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>StudentAgent needs full access to add and manage academic events on your Apple Calendar.</string>
+	
+	<!-- Apple Reminders Permissions -->
+	<key>NSRemindersUsageDescription</key>
+	<string>StudentAgent adds reminders for your student assignments, I-9 form paperwork, and campus tasks.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>StudentAgent needs access to Apple Reminders to organize your urgent student deadlines.</string>
+	
+	<!-- Document & Chat File Persistence in Files App -->
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+	
+	<!-- OAuth URL Schemes -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.jaychauhan.studentagent.auth</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>msauth.com.jaychauhan.studentagent</string>
+				<string>com.googleusercontent.apps.673791223308-9t7fq144ts0t0g8mko6m511uf3uq9j5j</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

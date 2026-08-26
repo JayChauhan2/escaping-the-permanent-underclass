@@ -1,0 +1,7 @@
+.DS_Store
+.build/
+*.xcuserstate
+xcuserdata/
+phone_dump/
+DerivedData/
+.swiftpm/
