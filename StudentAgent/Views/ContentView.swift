@@ -17,6 +17,7 @@ public struct ContentView: View {
     @State private var showingSettings: Bool = false
     @State private var searchQuery: String = ""
     @State private var dragOffset: CGFloat = 0
+    @State private var isDragging: Bool = false
     
     private let sidebarWidth: CGFloat = 300
     
@@ -34,7 +35,7 @@ public struct ContentView: View {
     public var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
-                // Main Conversation View
+                // 1. Main Chat Surface
                 if let convo = selectedConversation ?? storage.conversations.first {
                     ChatView(
                         conversation: convo,
@@ -49,30 +50,81 @@ public struct ContentView: View {
                     Color.grokCanvas.ignoresSafeArea()
                 }
                 
-                // Dimming Scrim when sidebar is open
-                if showingSidebar || dragOffset > 0 {
+                // 2. Invisible Left Edge Swipe Trigger Area (Ultra-responsive)
+                if !showingSidebar {
+                    Color.clear
+                        .frame(width: 35)
+                        .contentShape(Rectangle())
+                        .gesture(
+                            DragGesture(minimumDistance: 5, coordinateSpace: .global)
+                                .onChanged { value in
+                                    if value.translation.width > 0 {
+                                        isDragging = true
+                                        dragOffset = min(sidebarWidth, value.translation.width)
+                                    }
+                                }
+                                .onEnded { value in
+                                    isDragging = false
+                                    if value.translation.width > 45 || value.predictedEndTranslation.width > 120 {
+                                        openSidebar()
+                                    } else {
+                                        closeSidebar()
+                                    }
+                                }
+                        )
+                }
+                
+                // 3. Dark Backdrop Scrim
+                if showingSidebar || isDragging {
                     let progress = min(1.0, max(0.0, (showingSidebar ? sidebarWidth + dragOffset : dragOffset) / sidebarWidth))
-                    Color.black.opacity(Double(progress) * 0.6)
+                    Color.black.opacity(Double(progress) * 0.65)
                         .ignoresSafeArea()
                         .onTapGesture {
                             closeSidebar()
                         }
+                        .gesture(
+                            DragGesture(minimumDistance: 10, coordinateSpace: .global)
+                                .onChanged { value in
+                                    if value.translation.width < 0 {
+                                        isDragging = true
+                                        dragOffset = value.translation.width
+                                    }
+                                }
+                                .onEnded { value in
+                                    isDragging = false
+                                    if value.translation.width < -40 || value.predictedEndTranslation.width < -120 {
+                                        closeSidebar()
+                                    } else {
+                                        openSidebar()
+                                    }
+                                }
+                        )
                 }
                 
-                // Sliding Sidebar Drawer
+                // 4. Sliding Sidebar Drawer
                 sidebarDrawer(geometry: geometry)
                     .frame(width: sidebarWidth)
-                    .offset(x: currentDrawerOffset)
+                    .offset(x: calculatedDrawerOffset)
+                    .animation(.interactiveSpring(response: 0.28, dampingFraction: 0.82), value: dragOffset)
+                    .animation(.interactiveSpring(response: 0.28, dampingFraction: 0.82), value: showingSidebar)
+                    .gesture(
+                        DragGesture(minimumDistance: 10, coordinateSpace: .global)
+                            .onChanged { value in
+                                if value.translation.width < 0 {
+                                    isDragging = true
+                                    dragOffset = value.translation.width
+                                }
+                            }
+                            .onEnded { value in
+                                isDragging = false
+                                if value.translation.width < -50 || value.predictedEndTranslation.width < -120 {
+                                    closeSidebar()
+                                } else {
+                                    openSidebar()
+                                }
+                            }
+                    )
             }
-            .gesture(
-                DragGesture(minimumDistance: 15, coordinateSpace: .local)
-                    .onChanged { value in
-                        handleDragChanged(value: value, screenWidth: geometry.size.width)
-                    }
-                    .onEnded { value in
-                        handleDragEnded(value: value)
-                    }
-            )
         }
         .preferredColorScheme(.dark)
         .onAppear {
@@ -85,7 +137,7 @@ public struct ContentView: View {
         }
     }
     
-    private var currentDrawerOffset: CGFloat {
+    private var calculatedDrawerOffset: CGFloat {
         if showingSidebar {
             return min(0, dragOffset)
         } else {
@@ -93,66 +145,26 @@ public struct ContentView: View {
         }
     }
     
-    private func handleDragChanged(value: DragGesture.Value, screenWidth: CGFloat) {
-        let isFromLeftEdge = value.startLocation.x < 50
-        
-        if showingSidebar {
-            // Dragging left to close
-            if value.translation.width < 0 {
-                dragOffset = value.translation.width
-            }
-        } else if isFromLeftEdge {
-            // Dragging right from edge to open
-            if value.translation.width > 0 {
-                dragOffset = min(sidebarWidth, value.translation.width)
-            }
-        }
-    }
-    
-    private func handleDragEnded(value: DragGesture.Value) {
-        let threshold = sidebarWidth * 0.35
-        let velocity = value.predictedEndTranslation.width
-        
-        if showingSidebar {
-            if value.translation.width < -threshold || velocity < -150 {
-                closeSidebar()
-            } else {
-                openSidebar()
-            }
-        } else {
-            if value.translation.width > threshold || velocity > 150 {
-                openSidebar()
-            } else {
-                closeSidebar()
-            }
-        }
-        
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-            dragOffset = 0
-        }
-    }
-    
     private func openSidebar() {
         #if canImport(UIKit)
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         #endif
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
             showingSidebar = true
             dragOffset = 0
         }
     }
     
     private func closeSidebar() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
             showingSidebar = false
             dragOffset = 0
         }
     }
     
-    // Grok History Drawer with Safe Area Protection
+    // Grok History Drawer
     private func sidebarDrawer(geometry: GeometryProxy) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Top Safe Area Spacer so header never collides with Clock / Dynamic Island
             Color.clear.frame(height: geometry.safeAreaInsets.top)
             
             // Header: Title & New Chat
@@ -177,7 +189,7 @@ public struct ContentView: View {
                 .buttonStyle(GrokPressableStyle())
             }
             .padding(.horizontal, 16)
-            .padding(.top, 10)
+            .padding(.top, 8)
             .padding(.bottom, 12)
             
             // Search Box
@@ -258,7 +270,6 @@ public struct ContentView: View {
             }
             .buttonStyle(GrokPressableStyle())
             
-            // Bottom Safe Area Spacer
             Color.clear.frame(height: geometry.safeAreaInsets.bottom)
         }
         .background(Color.grokSurface1)
