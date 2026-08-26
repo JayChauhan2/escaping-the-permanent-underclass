@@ -7,8 +7,8 @@ import Foundation
 
 public struct DeepSeekMessage: Codable {
     public let role: String
-    public let content: String?
-    public let tool_calls: [DeepSeekToolCall]?
+    public var content: String?
+    public var tool_calls: [DeepSeekToolCall]?
     public let tool_call_id: String?
     public let name: String?
     
@@ -24,12 +24,23 @@ public struct DeepSeekMessage: Codable {
 public struct DeepSeekToolCall: Codable, Identifiable {
     public let id: String
     public let type: String
-    public let function: DeepSeekFunctionCall
+    public var function: DeepSeekFunctionCall
+    
+    public init(id: String, type: String = "function", function: DeepSeekFunctionCall) {
+        self.id = id
+        self.type = type
+        self.function = function
+    }
 }
 
 public struct DeepSeekFunctionCall: Codable {
-    public let name: String
-    public let arguments: String
+    public var name: String
+    public var arguments: String
+    
+    public init(name: String, arguments: String) {
+        self.name = name
+        self.arguments = arguments
+    }
 }
 
 public struct DeepSeekToolDefinition: Codable {
@@ -101,14 +112,30 @@ public struct DeepSeekChatRequest: Codable {
     public let tool_choice: String?
     public let temperature: Double?
     public let max_tokens: Int?
+    public let stream: Bool?
 }
 
-public struct DeepSeekChatResponse: Codable {
+public struct DeepSeekStreamChunk: Codable {
     public struct Choice: Codable {
-        public let message: DeepSeekMessage
+        public struct Delta: Codable {
+            public let role: String?
+            public let content: String?
+            public let tool_calls: [StreamToolCall]?
+        }
+        public struct StreamToolCall: Codable {
+            public let index: Int?
+            public let id: String?
+            public let type: String?
+            public struct StreamFunction: Codable {
+                public let name: String?
+                public let arguments: String?
+            }
+            public let function: StreamFunction?
+        }
+        public let delta: Delta?
         public let finish_reason: String?
     }
-    public let choices: [Choice]
+    public let choices: [Choice]?
 }
 
 public final class DeepSeekService {
@@ -116,17 +143,19 @@ public final class DeepSeekService {
     
     private init() {}
     
-    public func sendChatCompletion(
+    // Streaming Chat Completion
+    public func sendChatCompletionStream(
         messages: [DeepSeekMessage],
         tools: [DeepSeekToolDefinition]? = nil,
         model: String = AppConfig.defaultModel,
-        apiKey: String = AppConfig.activeDeepSeekAPIKey
+        apiKey: String = AppConfig.activeDeepSeekAPIKey,
+        onToken: @escaping @MainActor (String) -> Void
     ) async throws -> DeepSeekMessage {
         guard !apiKey.isEmpty && apiKey != "YOUR_DEEPSEEK_API_KEY_HERE" else {
             let err = NSError(
                 domain: "DeepSeekService",
                 code: 401,
-                userInfo: [NSLocalizedDescriptionKey: "DeepSeek API key is missing. Please set your API key in Secrets.swift or in the app Settings."]
+                userInfo: [NSLocalizedDescriptionKey: "DeepSeek API key is missing. Please set your API key in Secrets.swift or in Settings."]
             )
             await DebugLogger.shared.log(type: .error, title: "API Key Missing", payload: err.localizedDescription)
             throw err
@@ -144,42 +173,83 @@ public final class DeepSeekService {
             tools: tools,
             tool_choice: tools != nil ? "auto" : nil,
             temperature: 0.3,
-            max_tokens: 2048
+            max_tokens: 2048,
+            stream: true
         )
         
         let encoder = JSONEncoder()
-        encoder.outputFormatting = .prettyPrinted
         let encodedData = try encoder.encode(requestBody)
         request.httpBody = encodedData
         
         let requestJSONString = String(data: encodedData, encoding: .utf8) ?? ""
-        await DebugLogger.shared.log(type: .apiRequest, title: "POST /v1/chat/completions (\(model))", payload: requestJSONString)
+        await DebugLogger.shared.log(type: .apiRequest, title: "POST /v1/chat/completions (Stream)", payload: requestJSONString)
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (bytes, response) = try await URLSession.shared.bytes(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse else {
-            let err = NSError(domain: "DeepSeekService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid server response."])
-            await DebugLogger.shared.log(type: .error, title: "Network Error", payload: err.localizedDescription)
-            throw err
+            throw NSError(domain: "DeepSeekService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid response from server."])
         }
-        
-        let rawResponseString = String(data: data, encoding: .utf8) ?? ""
         
         guard httpResponse.statusCode == 200 else {
-            let err = NSError(domain: "DeepSeekService", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "DeepSeek API Error (HTTP \(httpResponse.statusCode)): \(rawResponseString)"])
-            await DebugLogger.shared.log(type: .error, title: "API Error (HTTP \(httpResponse.statusCode))", payload: rawResponseString)
-            throw err
+            throw NSError(domain: "DeepSeekService", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "HTTP \(httpResponse.statusCode) error."])
         }
         
-        await DebugLogger.shared.log(type: .apiResponse, title: "DeepSeek Response (200 OK)", payload: rawResponseString)
+        var accumulatedContent = ""
+        var accumulatedToolCalls: [Int: (id: String, name: String, args: String)] = [:]
         
-        let decoded = try JSONDecoder().decode(DeepSeekChatResponse.self, from: data)
-        guard let firstChoice = decoded.choices.first else {
-            let err = NSError(domain: "DeepSeekService", code: -2, userInfo: [NSLocalizedDescriptionKey: "No completion returned."])
-            await DebugLogger.shared.log(type: .error, title: "Parse Error", payload: err.localizedDescription)
-            throw err
+        for try await line in bytes.lines {
+            if Task.isCancelled { break }
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard trimmed.hasPrefix("data: ") else { continue }
+            
+            let payload = String(trimmed.dropFirst(6))
+            if payload == "[DONE]" { break }
+            
+            guard let data = payload.data(using: .utf8),
+                  let chunk = try? JSONDecoder().decode(DeepSeekStreamChunk.self, from: data),
+                  let firstChoice = chunk.choices?.first else {
+                continue
+            }
+            
+            if let contentPiece = firstChoice.delta?.content, !contentPiece.isEmpty {
+                accumulatedContent += contentPiece
+                await onToken(contentPiece)
+            }
+            
+            if let deltaTools = firstChoice.delta?.tool_calls {
+                for dt in deltaTools {
+                    let idx = dt.index ?? 0
+                    var current = accumulatedToolCalls[idx] ?? (id: dt.id ?? "call_\(idx)", name: "", args: "")
+                    if let id = dt.id, !id.isEmpty { current.id = id }
+                    if let name = dt.function?.name { current.name += name }
+                    if let args = dt.function?.arguments { current.args += args }
+                    accumulatedToolCalls[idx] = current
+                }
+            }
         }
         
-        return firstChoice.message
+        var finalToolCalls: [DeepSeekToolCall]? = nil
+        if !accumulatedToolCalls.isEmpty {
+            finalToolCalls = accumulatedToolCalls.keys.sorted().map { idx in
+                let item = accumulatedToolCalls[idx]!
+                return DeepSeekToolCall(
+                    id: item.id,
+                    type: "function",
+                    function: DeepSeekFunctionCall(name: item.name, arguments: item.args)
+                )
+            }
+        }
+        
+        await DebugLogger.shared.log(
+            type: .apiResponse,
+            title: "DeepSeek Stream Finished",
+            payload: "Content length: \(accumulatedContent.count) chars | Tool calls: \(finalToolCalls?.count ?? 0)"
+        )
+        
+        return DeepSeekMessage(
+            role: "assistant",
+            content: accumulatedContent.isEmpty ? nil : accumulatedContent,
+            tool_calls: finalToolCalls
+        )
     }
 }

@@ -148,7 +148,6 @@ public final class AgentOrchestrator: ObservableObject {
         text: String,
         conversationId: String
     ) {
-        // Cancel any existing task
         activeProcessingTask?.cancel()
         
         activeProcessingTask = Task {
@@ -191,15 +190,31 @@ public final class AgentOrchestrator: ObservableObject {
         do {
             var collectedActions: [CalendarAction] = []
             var collectedEmails: [EmailItem] = []
+            var streamingMsg: ChatMessageItem? = nil
             
             var currentTurn = 0
             while currentTurn < 3 {
                 if Task.isCancelled { break }
                 currentTurn += 1
                 
-                let responseMessage = try await deepSeek.sendChatCompletion(
+                let responseMessage = try await deepSeek.sendChatCompletionStream(
                     messages: apiMessages,
-                    tools: availableTools
+                    tools: availableTools,
+                    onToken: { token in
+                        if streamingMsg == nil {
+                            let newMsg = ChatMessageItem(
+                                role: .assistant,
+                                content: token,
+                                conversationId: conversationId,
+                                isStreaming: true
+                            )
+                            streamingMsg = newMsg
+                            self.storage.addMessage(newMsg)
+                            self.currentStep = nil
+                        } else {
+                            streamingMsg?.content += token
+                        }
+                    }
                 )
                 
                 if Task.isCancelled { break }
@@ -240,26 +255,31 @@ public final class AgentOrchestrator: ObservableObject {
                         ))
                     }
                 } else {
-                    if Task.isCancelled { break }
-                    withAnimation {
-                        self.currentStep = AgentExecutionStep(icon: "pencil.line", text: "Finalizing response...")
+                    if let msg = streamingMsg {
+                        msg.isStreaming = false
+                        if !collectedActions.isEmpty {
+                            msg.proposedActions = collectedActions
+                        }
+                        if !collectedEmails.isEmpty {
+                            msg.emailDigests = collectedEmails
+                        }
+                        self.storage.saveData()
+                    } else {
+                        let finalContent = responseMessage.content ?? "Here is what I found."
+                        let assistantMsg = ChatMessageItem(
+                            role: .assistant,
+                            content: finalContent,
+                            conversationId: conversationId,
+                            isStreaming: false
+                        )
+                        if !collectedActions.isEmpty {
+                            assistantMsg.proposedActions = collectedActions
+                        }
+                        if !collectedEmails.isEmpty {
+                            assistantMsg.emailDigests = collectedEmails
+                        }
+                        storage.addMessage(assistantMsg)
                     }
-                    
-                    let assistantContent = responseMessage.content ?? "Here is what I found."
-                    let assistantMsg = ChatMessageItem(
-                        role: .assistant,
-                        content: assistantContent,
-                        conversationId: conversationId
-                    )
-                    
-                    if !collectedActions.isEmpty {
-                        assistantMsg.proposedActions = collectedActions
-                    }
-                    if !collectedEmails.isEmpty {
-                        assistantMsg.emailDigests = collectedEmails
-                    }
-                    
-                    storage.addMessage(assistantMsg)
                     break
                 }
             }

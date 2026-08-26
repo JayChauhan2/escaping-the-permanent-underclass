@@ -9,10 +9,11 @@ import UIKit
 #endif
 
 public struct MessageBubbleView: View {
-    public let message: ChatMessageItem
+    @ObservedObject public var message: ChatMessageItem
     @ObservedObject public var orchestrator: AgentOrchestrator
     
     @State private var didCopy = false
+    @State private var cursorVisible = true
     
     public init(message: ChatMessageItem, orchestrator: AgentOrchestrator) {
         self.message = message
@@ -40,7 +41,7 @@ public struct MessageBubbleView: View {
                         )
                 }
             } else {
-                // Assistant Transcript: Full width, clean typography on true black
+                // Assistant Transcript: Full width, clean typography with live streaming cursor
                 VStack(alignment: .leading, spacing: 10) {
                     // Agent Header Indicator
                     HStack(spacing: 6) {
@@ -54,22 +55,42 @@ public struct MessageBubbleView: View {
                         
                         Spacer()
                         
-                        // Micro action: Copy response
-                        Button(action: copyResponse) {
-                            Image(systemName: didCopy ? "checkmark" : "doc.on.doc")
-                                .font(.system(size: 12))
-                                .foregroundColor(didCopy ? Color.grokSuccess : Color.grokTextSecondary)
+                        if !message.isStreaming {
+                            Button(action: copyResponse) {
+                                Image(systemName: didCopy ? "checkmark" : "doc.on.doc")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(didCopy ? Color.grokSuccess : Color.grokTextSecondary)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
                     .padding(.top, 4)
                     
-                    // Body text
-                    Text(LocalizedStringKey(message.content))
-                        .font(.system(size: 15))
-                        .lineSpacing(4)
-                        .foregroundColor(Color.grokTextPrimary)
+                    // Body text with Grok streaming cursor
+                    if message.isStreaming {
+                        HStack(alignment: .bottom, spacing: 2) {
+                            Text(message.content)
+                                .font(.system(size: 15))
+                                .lineSpacing(4)
+                                .foregroundColor(Color.grokTextPrimary)
+                            
+                            Text("▍")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(Color.grokLinkBlue)
+                                .opacity(cursorVisible ? 1.0 : 0.1)
+                                .animation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true), value: cursorVisible)
+                        }
                         .fixedSize(horizontal: false, vertical: true)
+                        .onAppear {
+                            cursorVisible = false
+                        }
+                    } else {
+                        Text(LocalizedStringKey(message.content))
+                            .font(.system(size: 15))
+                            .lineSpacing(4)
+                            .foregroundColor(Color.grokTextPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     
                     // Embedded Email Citations
                     if !message.emailDigests.isEmpty {
