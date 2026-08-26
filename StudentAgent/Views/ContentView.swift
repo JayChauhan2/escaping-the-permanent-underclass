@@ -4,6 +4,9 @@
 //
 
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 public struct ContentView: View {
     @StateObject private var orchestrator = AgentOrchestrator()
@@ -13,6 +16,9 @@ public struct ContentView: View {
     @State private var showingSidebar: Bool = false
     @State private var showingSettings: Bool = false
     @State private var searchQuery: String = ""
+    @State private var dragOffset: CGFloat = 0
+    
+    private let sidebarWidth: CGFloat = 300
     
     public init() {}
     
@@ -26,37 +32,47 @@ public struct ContentView: View {
     }
     
     public var body: some View {
-        ZStack(alignment: .leading) {
-            // Main Conversation Surface
-            if let convo = selectedConversation ?? storage.conversations.first {
-                ChatView(
-                    conversation: convo,
-                    orchestrator: orchestrator,
-                    onOpenSidebar: {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            showingSidebar = true
-                        }
-                    },
-                    onNewChat: createNewChat
-                )
-            } else {
-                Color.grokCanvas.ignoresSafeArea()
-            }
-            
-            // Sliding Sidebar Drawer Overlay
-            if showingSidebar {
-                Color.black.opacity(0.6)
-                    .ignoresSafeArea()
-                    .onTapGesture {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            showingSidebar = false
-                        }
-                    }
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                // Main Conversation View
+                if let convo = selectedConversation ?? storage.conversations.first {
+                    ChatView(
+                        conversation: convo,
+                        orchestrator: orchestrator,
+                        onOpenSidebar: {
+                            openSidebar()
+                        },
+                        onNewChat: createNewChat
+                    )
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                } else {
+                    Color.grokCanvas.ignoresSafeArea()
+                }
                 
-                sidebarDrawer
-                    .transition(.move(edge: .leading))
-                    .zIndex(10)
+                // Dimming Scrim when sidebar is open
+                if showingSidebar || dragOffset > 0 {
+                    let progress = min(1.0, max(0.0, (showingSidebar ? sidebarWidth + dragOffset : dragOffset) / sidebarWidth))
+                    Color.black.opacity(Double(progress) * 0.6)
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            closeSidebar()
+                        }
+                }
+                
+                // Sliding Sidebar Drawer
+                sidebarDrawer(geometry: geometry)
+                    .frame(width: sidebarWidth)
+                    .offset(x: currentDrawerOffset)
             }
+            .gesture(
+                DragGesture(minimumDistance: 15, coordinateSpace: .local)
+                    .onChanged { value in
+                        handleDragChanged(value: value, screenWidth: geometry.size.width)
+                    }
+                    .onEnded { value in
+                        handleDragEnded(value: value)
+                    }
+            )
         }
         .preferredColorScheme(.dark)
         .onAppear {
@@ -69,10 +85,77 @@ public struct ContentView: View {
         }
     }
     
-    // Grok History Drawer
-    private var sidebarDrawer: some View {
+    private var currentDrawerOffset: CGFloat {
+        if showingSidebar {
+            return min(0, dragOffset)
+        } else {
+            return -sidebarWidth + max(0, dragOffset)
+        }
+    }
+    
+    private func handleDragChanged(value: DragGesture.Value, screenWidth: CGFloat) {
+        let isFromLeftEdge = value.startLocation.x < 50
+        
+        if showingSidebar {
+            // Dragging left to close
+            if value.translation.width < 0 {
+                dragOffset = value.translation.width
+            }
+        } else if isFromLeftEdge {
+            // Dragging right from edge to open
+            if value.translation.width > 0 {
+                dragOffset = min(sidebarWidth, value.translation.width)
+            }
+        }
+    }
+    
+    private func handleDragEnded(value: DragGesture.Value) {
+        let threshold = sidebarWidth * 0.35
+        let velocity = value.predictedEndTranslation.width
+        
+        if showingSidebar {
+            if value.translation.width < -threshold || velocity < -150 {
+                closeSidebar()
+            } else {
+                openSidebar()
+            }
+        } else {
+            if value.translation.width > threshold || velocity > 150 {
+                openSidebar()
+            } else {
+                closeSidebar()
+            }
+        }
+        
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            dragOffset = 0
+        }
+    }
+    
+    private func openSidebar() {
+        #if canImport(UIKit)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        #endif
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            showingSidebar = true
+            dragOffset = 0
+        }
+    }
+    
+    private func closeSidebar() {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            showingSidebar = false
+            dragOffset = 0
+        }
+    }
+    
+    // Grok History Drawer with Safe Area Protection
+    private func sidebarDrawer(geometry: GeometryProxy) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Top Header: App Title & New Chat
+            // Top Safe Area Spacer so header never collides with Clock / Dynamic Island
+            Color.clear.frame(height: geometry.safeAreaInsets.top)
+            
+            // Header: Title & New Chat
             HStack {
                 Text("Conversations")
                     .font(.system(size: 20, weight: .bold))
@@ -81,13 +164,11 @@ public struct ContentView: View {
                 Spacer()
                 
                 Button(action: {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                        showingSidebar = false
-                    }
+                    closeSidebar()
                     createNewChat()
                 }) {
                     Image(systemName: "square.and.pencil")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(Color.grokTextPrimary)
                         .padding(8)
                         .background(Color.grokSurface2)
@@ -96,10 +177,10 @@ public struct ContentView: View {
                 .buttonStyle(GrokPressableStyle())
             }
             .padding(.horizontal, 16)
-            .padding(.top, 16)
+            .padding(.top, 10)
             .padding(.bottom, 12)
             
-            // Search Field
+            // Search Box
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 14))
@@ -127,9 +208,7 @@ public struct ContentView: View {
                     ForEach(filteredConversations) { convo in
                         Button(action: {
                             selectedConversation = convo
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                showingSidebar = false
-                            }
+                            closeSidebar()
                         }) {
                             HStack(spacing: 10) {
                                 Image(systemName: "bubble.left")
@@ -159,9 +238,7 @@ public struct ContentView: View {
             
             // Bottom Settings Bar
             Button(action: {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                    showingSidebar = false
-                }
+                closeSidebar()
                 showingSettings = true
             }) {
                 HStack(spacing: 10) {
@@ -180,8 +257,10 @@ public struct ContentView: View {
                 .background(Color.grokSurface1)
             }
             .buttonStyle(GrokPressableStyle())
+            
+            // Bottom Safe Area Spacer
+            Color.clear.frame(height: geometry.safeAreaInsets.bottom)
         }
-        .frame(width: 290)
         .background(Color.grokSurface1)
         .overlay(
             Rectangle()
@@ -189,7 +268,7 @@ public struct ContentView: View {
                 .foregroundColor(Color.grokDivider),
             alignment: .trailing
         )
-        .ignoresSafeArea(.all, edges: .vertical)
+        .ignoresSafeArea()
     }
     
     private func createNewChat() {
