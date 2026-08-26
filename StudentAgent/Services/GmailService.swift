@@ -5,6 +5,7 @@
 
 import Foundation
 import AuthenticationServices
+import CommonCrypto
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -18,6 +19,7 @@ public final class GmailService: NSObject, EmailServiceProtocol, ASWebAuthentica
     public var providerName: String { "Gmail (Google OAuth)" }
     
     private let tokenKey = "gmail_access_token"
+    private let refreshTokenKey = "gmail_refresh_token"
     
     public var isAuthenticated: Bool {
         guard let token = UserDefaults.standard.string(forKey: tokenKey), !token.isEmpty else {
@@ -39,11 +41,18 @@ public final class GmailService: NSObject, EmailServiceProtocol, ASWebAuthentica
             throw NSError(domain: "GmailService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Gmail Client ID is not configured."])
         }
         
-        guard let authURL = URL(string: "https://accounts.google.com/o/oauth2/v2/auth?client_id=\(clientID)&redirect_uri=\(redirectURI)&response_type=token&scope=\(scopes.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")") else {
+        // 1. Generate PKCE Verifier & Challenge
+        let codeVerifier = generateCodeVerifier()
+        let codeChallenge = generateCodeChallenge(from: codeVerifier)
+        
+        guard let encodedScopes = scopes.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let encodedRedirect = redirectURI.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let authURL = URL(string: "https://accounts.google.com/o/oauth2/v2/auth?client_id=\(clientID)&redirect_uri=\(encodedRedirect)&response_type=code&scope=\(encodedScopes)&code_challenge=\(codeChallenge)&code_challenge_method=S256") else {
             throw NSError(domain: "GmailService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid Google OAuth URL."])
         }
         
-        return try await withCheckedThrowingContinuation { continuation in
+        // 2. Launch ASWebAuthenticationSession for Authorization Code
+        let authCode: String = try await withCheckedThrowingContinuation { continuation in
             let session = ASWebAuthenticationSession(url: authURL, callbackURLScheme: "com.googleusercontent.apps") { callbackURL, error in
                 if let error = error {
                     continuation.resume(throwing: error)
@@ -51,33 +60,65 @@ public final class GmailService: NSObject, EmailServiceProtocol, ASWebAuthentica
                 }
                 
                 guard let callbackURL = callbackURL,
-                      let fragment = callbackURL.fragment else {
-                    continuation.resume(returning: false)
+                      let components = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false),
+                      let code = components.queryItems?.first(where: { $0.name == "code" })?.value else {
+                    continuation.resume(throwing: NSError(domain: "GmailService", code: -2, userInfo: [NSLocalizedDescriptionKey: "No authorization code returned."]))
                     return
                 }
                 
-                // Parse access_token from URL fragment
-                let params = fragment.components(separatedBy: "&").reduce(into: [String: String]()) { dict, pair in
-                    let parts = pair.components(separatedBy: "=")
-                    if parts.count == 2 {
-                        dict[parts[0]] = parts[1]
-                    }
-                }
-                
-                if let token = params["access_token"] {
-                    UserDefaults.standard.set(token, forKey: self.tokenKey)
-                    continuation.resume(returning: true)
-                } else {
-                    continuation.resume(returning: false)
-                }
+                continuation.resume(returning: code)
             }
             session.presentationContextProvider = self
+            session.prefersEphemeralWebBrowserSession = false
             session.start()
         }
+        
+        // 3. Exchange Authorization Code for Tokens at https://oauth2.googleapis.com/token
+        return try await exchangeCodeForTokens(code: authCode, codeVerifier: codeVerifier, clientID: clientID, redirectURI: redirectURI)
+    }
+    
+    private func exchangeCodeForTokens(code: String, codeVerifier: String, clientID: String, redirectURI: String) async throws -> Bool {
+        let tokenURL = URL(string: "https://oauth2.googleapis.com/token")!
+        var request = URLRequest(url: tokenURL)
+        request.httpMethod = "POST"
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        
+        let params: [String: String] = [
+            "client_id": clientID,
+            "code": code,
+            "code_verifier": codeVerifier,
+            "grant_type": "authorization_code",
+            "redirect_uri": redirectURI
+        ]
+        
+        let bodyString = params.map { "\($0.key)=\($0.value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")" }.joined(separator: "&")
+        request.httpBody = bodyString.data(using: .utf8)
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NSError(domain: "GmailService", code: -1, userInfo: [NSLocalizedDescriptionKey: "No response from Google token server."])
+        }
+        
+        guard httpResponse.statusCode == 200 else {
+            let errString = String(data: data, encoding: .utf8) ?? ""
+            throw NSError(domain: "GmailService", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "Token Exchange Failed (HTTP \(httpResponse.statusCode)): \(errString)"])
+        }
+        
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let accessToken = json["access_token"] as? String else {
+            return false
+        }
+        
+        UserDefaults.standard.set(accessToken, forKey: tokenKey)
+        if let refreshToken = json["refresh_token"] as? String {
+            UserDefaults.standard.set(refreshToken, forKey: refreshTokenKey)
+        }
+        return true
     }
     
     public func signOut() async throws {
         UserDefaults.standard.removeObject(forKey: tokenKey)
+        UserDefaults.standard.removeObject(forKey: refreshTokenKey)
     }
     
     public func fetchRecentEmails(hoursBack: Int = 48, maxCount: Int = 20) async throws -> [EmailItem] {
@@ -192,14 +233,12 @@ public final class GmailService: NSObject, EmailServiceProtocol, ASWebAuthentica
     }
     
     private func extractBody(from payload: [String: Any]) -> String? {
-        // Direct body data
         if let body = payload["body"] as? [String: Any],
            let base64Data = body["data"] as? String,
            let text = decodeBase64URL(base64Data) {
             return cleanEmailText(text)
         }
         
-        // Multipart parts
         if let parts = payload["parts"] as? [[String: Any]] {
             for part in parts {
                 let mimeType = part["mimeType"] as? String ?? ""
@@ -229,13 +268,36 @@ public final class GmailService: NSObject, EmailServiceProtocol, ASWebAuthentica
     }
     
     private func cleanEmailText(_ text: String) -> String {
-        // Strip HTML tags for clean model comprehension
         var cleaned = text.replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
         cleaned = cleaned.replacingOccurrences(of: "&nbsp;", with: " ")
         cleaned = cleaned.replacingOccurrences(of: "&amp;", with: "&")
         cleaned = cleaned.replacingOccurrences(of: "&lt;", with: "<")
         cleaned = cleaned.replacingOccurrences(of: "&gt;", with: ">")
         return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    
+    // MARK: - PKCE Utilities
+    private func generateCodeVerifier() -> String {
+        var buffer = [UInt8](repeating: 0, count: 32)
+        _ = SecRandomCopyBytes(kSecRandomDefault, buffer.count, &buffer)
+        return Data(buffer).base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+            .trimmingCharacters(in: .whitespaces)
+    }
+    
+    private func generateCodeChallenge(from verifier: String) -> String {
+        guard let data = verifier.data(using: .utf8) else { return "" }
+        var hash = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
+        data.withUnsafeBytes {
+            _ = CC_SHA256($0.baseAddress, CC_LONG(data.count), &hash)
+        }
+        return Data(hash).base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+            .trimmingCharacters(in: .whitespaces)
     }
     
     @MainActor
