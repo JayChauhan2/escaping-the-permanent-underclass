@@ -35,7 +35,7 @@ public struct ContentView: View {
     public var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
-                // 1. Main Chat Surface (Full native interaction, buttons always work)
+                // 1. Main Chat Surface
                 if let convo = selectedConversation ?? storage.conversations.first {
                     ChatView(
                         conversation: convo,
@@ -50,7 +50,7 @@ public struct ContentView: View {
                     Color.grokCanvas.ignoresSafeArea()
                 }
                 
-                // 2. Dimming Backdrop when Drawer is open or being dragged open
+                // 2. Dimming Backdrop
                 if showingSidebar || isDragging {
                     let progress: CGFloat = showingSidebar
                         ? min(1.0, max(0.0, (sidebarWidth + dragOffset) / sidebarWidth))
@@ -72,22 +72,24 @@ public struct ContentView: View {
             }
             .contentShape(Rectangle())
             .simultaneousGesture(
-                DragGesture(minimumDistance: 12, coordinateSpace: .global)
+                DragGesture(minimumDistance: 8, coordinateSpace: .global)
                     .onChanged { value in
                         let startX = value.startLocation.x
                         let translationX = value.translation.width
                         let translationY = abs(value.translation.height)
                         
-                        // Prioritize horizontal gestures over vertical scrolling
+                        // Check horizontal dominance
+                        guard abs(translationX) > translationY * 1.1 else { return }
+                        
                         if !showingSidebar {
-                            // Swipe from left edge (wide 70pt zone across full screen height)
-                            if startX < 70 && translationX > 0 && translationX > translationY {
+                            // Open swipe: Allowed anywhere across the left 65% of screen
+                            if startX < geometry.size.width * 0.65 && translationX > 0 {
                                 isDragging = true
                                 dragOffset = min(sidebarWidth, translationX)
                             }
                         } else {
-                            // Dragging left to close when open
-                            if translationX < 0 && abs(translationX) > translationY {
+                            // Close swipe: Allowed 100% anywhere on entire screen
+                            if translationX < 0 {
                                 isDragging = true
                                 dragOffset = translationX
                             }
@@ -101,13 +103,15 @@ public struct ContentView: View {
                         let predictedX = value.predictedEndTranslation.width
                         
                         if showingSidebar {
-                            if translationX < -50 || predictedX < -100 {
+                            // Swipe left to close anywhere
+                            if translationX < -40 || predictedX < -80 {
                                 closeSidebar()
                             } else {
                                 openSidebar()
                             }
                         } else {
-                            if translationX > 50 || predictedX > 100 {
+                            // Swipe right to open
+                            if translationX > 40 || predictedX > 80 {
                                 openSidebar()
                             } else {
                                 closeSidebar()
