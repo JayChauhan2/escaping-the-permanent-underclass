@@ -77,7 +77,7 @@ public final class AgentOrchestrator: ObservableObject {
             ),
             DeepSeekToolDefinition(
                 name: "propose_calendar_event",
-                description: "Drafts a proposed Apple Calendar event card in user local time with a 1-tap confirmation button.",
+                description: "Drafts a single proposed Apple Calendar event card in user local time.",
                 parameters: [
                     "type": AnyCodable("object"),
                     "properties": AnyCodable([
@@ -106,8 +106,48 @@ public final class AgentOrchestrator: ObservableObject {
                 ]
             ),
             DeepSeekToolDefinition(
+                name: "propose_calendar_events",
+                description: "Drafts MULTIPLE proposed Apple Calendar event cards in user local time simultaneously (e.g. when user requests 2, 3, or more events).",
+                parameters: [
+                    "type": AnyCodable("object"),
+                    "properties": AnyCodable([
+                        "events": [
+                            "type": "array",
+                            "description": "List of calendar event objects to draft",
+                            "items": [
+                                "type": "object",
+                                "properties": [
+                                    "title": [
+                                        "type": "string",
+                                        "description": "Event title"
+                                    ],
+                                    "start_date_iso": [
+                                        "type": "string",
+                                        "description": "Start date-time in local time (e.g. '2026-09-04T17:30:00')"
+                                    ],
+                                    "end_date_iso": [
+                                        "type": "string",
+                                        "description": "End date-time in local time (e.g. '2026-09-04T18:30:00')"
+                                    ],
+                                    "notes": [
+                                        "type": "string",
+                                        "description": "Notes or context"
+                                    ],
+                                    "is_all_day": [
+                                        "type": "boolean",
+                                        "description": "Whether all day"
+                                    ]
+                                ],
+                                "required": ["title", "start_date_iso"]
+                            ]
+                        ]
+                    ]),
+                    "required": AnyCodable(["events"])
+                ]
+            ),
+            DeepSeekToolDefinition(
                 name: "propose_reminder",
-                description: "Drafts a proposed Apple Reminder task card in user local time with a 1-tap confirmation button.",
+                description: "Drafts a single proposed Apple Reminder task card in user local time.",
                 parameters: [
                     "type": AnyCodable("object"),
                     "properties": AnyCodable([
@@ -126,11 +166,43 @@ public final class AgentOrchestrator: ObservableObject {
                     ]),
                     "required": AnyCodable(["title"])
                 ]
+            ),
+            DeepSeekToolDefinition(
+                name: "propose_reminders",
+                description: "Drafts MULTIPLE proposed Apple Reminder task cards in user local time simultaneously.",
+                parameters: [
+                    "type": AnyCodable("object"),
+                    "properties": AnyCodable([
+                        "reminders": [
+                            "type": "array",
+                            "description": "List of reminder objects to draft",
+                            "items": [
+                                "type": "object",
+                                "properties": [
+                                    "title": [
+                                        "type": "string",
+                                        "description": "Reminder task title"
+                                    ],
+                                    "due_date_iso": [
+                                        "type": "string",
+                                        "description": "Local due date-time string"
+                                    ],
+                                    "notes": [
+                                        "type": "string",
+                                        "description": "Notes"
+                                    ]
+                                ],
+                                "required": ["title"]
+                            ]
+                        ]
+                    ]),
+                    "required": AnyCodable(["reminders"])
+                ]
             )
         ]
     }
     
-    // Caveman Mode System Instructions with Local Timezone
+    // Caveman Mode System Instructions with Local Timezone & Multi-Event Rules
     private var systemPrompt: String {
         let tz = TimeZone.current
         let nowString = DateFormatter.localizedString(from: Date(), dateStyle: .full, timeStyle: .short)
@@ -146,7 +218,7 @@ public final class AgentOrchestrator: ObservableObject {
         
         # OPERATING RULES:
         1. Only call email tools when user asks about emails, tasks, schedule, advisor, classes, or student gov.
-        2. When finding a deadline or meeting, ALWAYS call `propose_calendar_event` or `propose_reminder` so a 1-tap confirmation card appears.
+        2. MULTI-EVENT SUPPORT: When user asks to add/schedule multiple events or deadlines (e.g. 'add these 2 things', 'schedule all 3 sessions'), ALWAYS propose cards for ALL requested events using `propose_calendar_events` or `propose_reminders`. Never restrict to only one event.
         3. When creating start_date_iso or due_date_iso, ALWAYS specify exact local time (e.g. 5:30 PM on Sep 4 = '2026-09-04T17:30:00'). Do NOT convert to UTC.
         4. State that event/reminder proposal cards are ready for 1-tap confirmation.
         """
@@ -316,10 +388,10 @@ public final class AgentOrchestrator: ObservableObject {
             return ("envelope.badge.shield.half.filled", "Reading inbox messages...")
         case "search_emails":
             return ("magnifyingglass", "Searching relevant emails...")
-        case "propose_calendar_event":
-            return ("calendar.badge.plus", "Drafting calendar event card...")
-        case "propose_reminder":
-            return ("checklist", "Drafting reminder card...")
+        case "propose_calendar_event", "propose_calendar_events":
+            return ("calendar.badge.plus", "Drafting calendar event cards...")
+        case "propose_reminder", "propose_reminders":
+            return ("checklist", "Drafting reminder cards...")
         default:
             return ("gearshape.2.fill", "Executing tool...")
         }
@@ -399,6 +471,33 @@ public final class AgentOrchestrator: ObservableObject {
             collectedActions.append(action)
             return "Drafted calendar event card '\(title)' for: \(startDate). User can tap to confirm."
             
+        case "propose_calendar_events":
+            let eventsList = (args["events"] as? [[String: Any]]) ?? []
+            var titles: [String] = []
+            for ev in eventsList {
+                let title = ev["title"] as? String ?? "New Event"
+                let startStr = ev["start_date_iso"] as? String ?? ""
+                let startDate = parseDateLocal(startStr) ?? Date().addingTimeInterval(86400)
+                let endStr = ev["end_date_iso"] as? String
+                let endDate = endStr != nil ? parseDateLocal(endStr!) : nil
+                let notes = ev["notes"] as? String
+                let isAllDay = ev["is_all_day"] as? Bool ?? false
+                
+                let action = CalendarAction(
+                    id: UUID().uuidString,
+                    type: .calendarEvent,
+                    title: title,
+                    notes: notes,
+                    startDate: startDate,
+                    endDate: endDate,
+                    isAllDay: isAllDay,
+                    status: .proposed
+                )
+                collectedActions.append(action)
+                titles.append(title)
+            }
+            return "Drafted \(titles.count) calendar event cards: \(titles.joined(separator: ", ")). User can tap to confirm."
+            
         case "propose_reminder":
             let title = args["title"] as? String ?? "Reminder"
             let dueStr = args["due_date_iso"] as? String
@@ -415,6 +514,28 @@ public final class AgentOrchestrator: ObservableObject {
             )
             collectedActions.append(action)
             return "Drafted reminder card '\(title)'. User can tap to confirm."
+            
+        case "propose_reminders":
+            let remsList = (args["reminders"] as? [[String: Any]]) ?? []
+            var titles: [String] = []
+            for rem in remsList {
+                let title = rem["title"] as? String ?? "Reminder"
+                let dueStr = rem["due_date_iso"] as? String
+                let dueDate = dueStr != nil ? parseDateLocal(dueStr!) : nil
+                let notes = rem["notes"] as? String
+                
+                let action = CalendarAction(
+                    id: UUID().uuidString,
+                    type: .appleReminder,
+                    title: title,
+                    notes: notes,
+                    startDate: dueDate ?? Date(),
+                    status: .proposed
+                )
+                collectedActions.append(action)
+                titles.append(title)
+            }
+            return "Drafted \(titles.count) reminder cards: \(titles.joined(separator: ", ")). User can tap to confirm."
             
         default:
             return "Tool \(name) executed."

@@ -14,6 +14,7 @@ public struct MessageBubbleView: View {
     
     @State private var didCopy = false
     @State private var cursorVisible = true
+    @State private var isAddingAll = false
     
     public init(message: ChatMessageItem, orchestrator: AgentOrchestrator) {
         self.message = message
@@ -21,6 +22,10 @@ public struct MessageBubbleView: View {
     }
     
     public var isUser: Bool { message.role == .user }
+    
+    private var pendingActions: [CalendarAction] {
+        message.proposedActions.filter { $0.status == .proposed }
+    }
     
     public var body: some View {
         VStack(alignment: isUser ? .trailing : .leading, spacing: 6) {
@@ -118,6 +123,31 @@ public struct MessageBubbleView: View {
                     // Proposed Action Cards (Calendar & Reminders)
                     if !message.proposedActions.isEmpty {
                         VStack(spacing: 8) {
+                            // Bulk "Add All" header button when multiple items exist
+                            if pendingActions.count > 1 {
+                                Button(action: addAllPendingActions) {
+                                    HStack(spacing: 6) {
+                                        if isAddingAll {
+                                            ProgressView()
+                                                .tint(Color.black)
+                                        } else {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .font(.system(size: 14, weight: .bold))
+                                            Text("Add All (\(pendingActions.count)) to Apple Device")
+                                                .font(.system(size: 13, weight: .bold))
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                    .background(Color.grokAccentWhite)
+                                    .foregroundColor(Color.black)
+                                    .clipShape(Capsule())
+                                }
+                                .buttonStyle(GrokPressableStyle(scale: 0.96))
+                                .disabled(isAddingAll)
+                                .padding(.bottom, 2)
+                            }
+                            
                             ForEach(message.proposedActions) { action in
                                 ActionCardView(action: action, message: message, orchestrator: orchestrator)
                             }
@@ -131,6 +161,19 @@ public struct MessageBubbleView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 2)
+    }
+    
+    private func addAllPendingActions() {
+        isAddingAll = true
+        Task {
+            for action in pendingActions {
+                try? await orchestrator.confirmAction(action, message: message)
+            }
+            #if canImport(UIKit)
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            #endif
+            isAddingAll = false
+        }
     }
     
     private func copyText(_ text: String) {
