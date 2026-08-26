@@ -18,6 +18,9 @@ public struct SettingsView: View {
     @State private var showingExportSuccess: Bool = false
     @State private var showingRestoreSuccess: Bool = false
     
+    @State private var calendarAuthorized: Bool = EventKitService.shared.isCalendarAuthorized()
+    @State private var remindersAuthorized: Bool = EventKitService.shared.isRemindersAuthorized()
+    
     public init(orchestrator: AgentOrchestrator) {
         self.orchestrator = orchestrator
     }
@@ -74,6 +77,12 @@ public struct SettingsView: View {
                                 .foregroundColor(GmailService.shared.isAuthenticated ? Color.grokSuccess : Color.grokTextSecondary)
                         }
                         
+                        if GmailService.shared.isAuthenticated && GmailService.shared.refreshToken != nil {
+                            Text("Permanent Offline Refresh Token active.")
+                                .font(.caption2)
+                                .foregroundColor(Color.grokTextSecondary)
+                        }
+                        
                         Button("Sign In to Google (Gmail)") {
                             Task {
                                 _ = try? await GmailService.shared.authenticate()
@@ -81,7 +90,7 @@ public struct SettingsView: View {
                         }
                         .foregroundColor(Color.grokLinkBlue)
                     } else {
-                        Text("Using sample student inbox (Advisor, I-9, Student Gov, Syllabus).")
+                        Text("Using live student inbox.")
                             .font(.caption)
                             .foregroundColor(Color.grokTextSecondary)
                     }
@@ -89,13 +98,35 @@ public struct SettingsView: View {
                 
                 // MARK: - 3. Apple Calendar & EventKit
                 Section(header: Text("APPLE CALENDAR & REMINDERS").foregroundColor(Color.grokTextSecondary)) {
-                    Button("Check / Request Calendar Permission") {
+                    HStack {
+                        Text("Apple Calendar:")
+                        Spacer()
+                        Text(calendarAuthorized ? "Authorized ✓" : "Not Granted")
+                            .foregroundColor(calendarAuthorized ? Color.grokSuccess : Color.grokWarning)
+                            .fontWeight(calendarAuthorized ? .semibold : .regular)
+                    }
+                    
+                    HStack {
+                        Text("Apple Reminders:")
+                        Spacer()
+                        Text(remindersAuthorized ? "Authorized ✓" : "Not Granted")
+                            .foregroundColor(remindersAuthorized ? Color.grokSuccess : Color.grokWarning)
+                            .fontWeight(remindersAuthorized ? .semibold : .regular)
+                    }
+                    
+                    Button("Request / Re-check Permissions") {
                         Task {
                             _ = await EventKitService.shared.requestCalendarAccess()
                             _ = await EventKitService.shared.requestRemindersAccess()
+                            calendarAuthorized = EventKitService.shared.isCalendarAuthorized()
+                            remindersAuthorized = EventKitService.shared.isRemindersAuthorized()
                         }
                     }
                     .foregroundColor(Color.grokLinkBlue)
+                }
+                .onAppear {
+                    calendarAuthorized = EventKitService.shared.isCalendarAuthorized()
+                    remindersAuthorized = EventKitService.shared.isRemindersAuthorized()
                 }
                 
                 // MARK: - 4. Developer Telemetry & Debug Inspector
@@ -115,7 +146,7 @@ public struct SettingsView: View {
                     }
                 }
                 
-                // MARK: - 5. Memory & Backup (Survives Xcode Expiry)
+                // MARK: - 5. Memory & Backup
                 Section(header: Text("DATA MEMORY & BACKUPS").foregroundColor(Color.grokTextSecondary)) {
                     Button(action: {
                         storage.saveData()

@@ -13,6 +13,25 @@ public final class EventKitService {
     
     private init() {}
     
+    // MARK: - Permission Status Checkers
+    public func isCalendarAuthorized() -> Bool {
+        if #available(iOS 17.0, *) {
+            let status = EKEventStore.authorizationStatus(for: .event)
+            return status == .fullAccess || status == .writeOnly
+        } else {
+            return EKEventStore.authorizationStatus(for: .event) == .authorized
+        }
+    }
+    
+    public func isRemindersAuthorized() -> Bool {
+        if #available(iOS 17.0, *) {
+            let status = EKEventStore.authorizationStatus(for: .reminder)
+            return status == .fullAccess || status == .writeOnly
+        } else {
+            return EKEventStore.authorizationStatus(for: .reminder) == .authorized
+        }
+    }
+    
     // MARK: - Permissions
     public func requestCalendarAccess() async -> Bool {
         if #available(iOS 17.0, *) {
@@ -58,7 +77,7 @@ public final class EventKitService {
         location: String? = nil
     ) async throws -> String {
         let granted = await requestCalendarAccess()
-        guard granted else {
+        guard granted || isCalendarAuthorized() else {
             throw NSError(domain: "EventKitService", code: 403, userInfo: [NSLocalizedDescriptionKey: "Calendar permission denied. Please enable in iOS Settings."])
         }
         
@@ -69,6 +88,7 @@ public final class EventKitService {
         event.isAllDay = isAllDay
         event.notes = notes
         event.location = location
+        event.timeZone = TimeZone.current
         event.calendar = eventStore.defaultCalendarForNewEvents
         
         try eventStore.save(event, span: .thisEvent, commit: true)
@@ -83,7 +103,7 @@ public final class EventKitService {
         priority: Int = 1
     ) async throws -> String {
         let granted = await requestRemindersAccess()
-        guard granted else {
+        guard granted || isRemindersAuthorized() else {
             throw NSError(domain: "EventKitService", code: 403, userInfo: [NSLocalizedDescriptionKey: "Reminders permission denied. Please enable in iOS Settings."])
         }
         
@@ -106,7 +126,7 @@ public final class EventKitService {
     // MARK: - Query Calendar
     public func fetchEvents(startDate: Date, endDate: Date) async -> [EKEvent] {
         let granted = await requestCalendarAccess()
-        guard granted else { return [] }
+        guard granted || isCalendarAuthorized() else { return [] }
         
         let predicate = eventStore.predicateForEvents(withStart: startDate, end: endDate, calendars: nil)
         return eventStore.events(matching: predicate)

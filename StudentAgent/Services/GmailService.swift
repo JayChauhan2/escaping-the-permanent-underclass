@@ -22,16 +22,20 @@ public final class GmailService: NSObject, EmailServiceProtocol, ASWebAuthentica
     private let refreshTokenKey = "gmail_refresh_token"
     
     public var isAuthenticated: Bool {
-        guard let token = UserDefaults.standard.string(forKey: tokenKey), !token.isEmpty else {
-            return false
-        }
-        return true
+        let token = UserDefaults.standard.string(forKey: tokenKey)
+        let refresh = UserDefaults.standard.string(forKey: refreshTokenKey)
+        return (token != nil && !token!.isEmpty) || (refresh != nil && !refresh!.isEmpty)
     }
     
     public var accessToken: String? {
         UserDefaults.standard.string(forKey: tokenKey)
     }
     
+    public var refreshToken: String? {
+        UserDefaults.standard.string(forKey: refreshTokenKey)
+    }
+    
+    // MARK: - OAuth 2.0 PKCE with Permanent Offline Refresh Token
     public func authenticate() async throws -> Bool {
         let clientID = AppConfig.gmailClientID
         let redirectURI = AppConfig.gmailRedirectURI
@@ -46,7 +50,7 @@ public final class GmailService: NSObject, EmailServiceProtocol, ASWebAuthentica
         
         guard let encodedScopes = scopes.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
               let encodedRedirect = redirectURI.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let authURL = URL(string: "https://accounts.google.com/o/oauth2/v2/auth?client_id=\(clientID)&redirect_uri=\(encodedRedirect)&response_type=code&scope=\(encodedScopes)&code_challenge=\(codeChallenge)&code_challenge_method=S256") else {
+              let authURL = URL(string: "https://accounts.google.com/o/oauth2/v2/auth?client_id=\(clientID)&redirect_uri=\(encodedRedirect)&response_type=code&scope=\(encodedScopes)&access_type=offline&prompt=consent&code_challenge=\(codeChallenge)&code_challenge_method=S256") else {
             throw NSError(domain: "GmailService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid Google OAuth URL."])
         }
         
@@ -113,20 +117,57 @@ public final class GmailService: NSObject, EmailServiceProtocol, ASWebAuthentica
         return true
     }
     
+    // MARK: - Silent Auto-Refresh Engine
+    public func getValidAccessToken() async throws -> String {
+        if let token = accessToken, !token.isEmpty {
+            return token
+        }
+        return try await refreshAccessToken()
+    }
+    
+    public func refreshAccessToken() async throws -> String {
+        guard let refToken = refreshToken, !refToken.isEmpty else {
+            throw NSError(domain: "GmailService", code: 401, userInfo: [NSLocalizedDescriptionKey: "No refresh token available. Please sign in via Settings."])
+        }
+        
+        let clientID = AppConfig.gmailClientID
+        let tokenURL = URL(string: "https://oauth2.googleapis.com/token")!
+        var request = URLRequest(url: tokenURL)
+        request.httpMethod = "POST"
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        
+        let params: [String: String] = [
+            "client_id": clientID,
+            "refresh_token": refToken,
+            "grant_type": "refresh_token"
+        ]
+        
+        let bodyString = params.map { "\($0.key)=\($0.value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")" }.joined(separator: "&")
+        request.httpBody = bodyString.data(using: .utf8)
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            let errString = String(data: data, encoding: .utf8) ?? ""
+            throw NSError(domain: "GmailService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Silent token refresh failed: \(errString)"])
+        }
+        
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let newAccessToken = json["access_token"] as? String else {
+            throw NSError(domain: "GmailService", code: 500, userInfo: [NSLocalizedDescriptionKey: "Failed to parse refreshed token."])
+        }
+        
+        UserDefaults.standard.set(newAccessToken, forKey: tokenKey)
+        return newAccessToken
+    }
+    
     public func signOut() async throws {
         UserDefaults.standard.removeObject(forKey: tokenKey)
         UserDefaults.standard.removeObject(forKey: refreshTokenKey)
     }
     
-    // Fetch Recent Emails: Dynamic date query or raw count with no date restriction
+    // Fetch Recent Emails with Auto-Refresh on 401
     public func fetchRecentEmails(hoursBack: Int = 0, maxCount: Int = 50) async throws -> [EmailItem] {
-        guard let token = accessToken else {
-            throw NSError(
-                domain: "GmailService",
-                code: 401,
-                userInfo: [NSLocalizedDescriptionKey: "Not signed in to Gmail. Please tap 'Sign In to Google (Gmail)' in Settings."]
-            )
-        }
+        var token = try await getValidAccessToken()
         
         var queryParam = ""
         if hoursBack > 0 {
@@ -138,18 +179,20 @@ public final class GmailService: NSObject, EmailServiceProtocol, ASWebAuthentica
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw NSError(domain: "GmailService", code: -1, userInfo: [NSLocalizedDescriptionKey: "No response from Gmail."])
+        var (data, response) = try await URLSession.shared.data(for: request)
+        
+        // If 401 expired, silently refresh token and retry immediately
+        if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 401 {
+            token = try await refreshAccessToken()
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            let retryResult = try await URLSession.shared.data(for: request)
+            data = retryResult.0
+            response = retryResult.1
         }
         
-        guard httpResponse.statusCode == 200 else {
-            if httpResponse.statusCode == 401 {
-                UserDefaults.standard.removeObject(forKey: tokenKey)
-                throw NSError(domain: "GmailService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Gmail session expired. Please sign in again in Settings."])
-            }
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             let errStr = String(data: data, encoding: .utf8) ?? ""
-            throw NSError(domain: "GmailService", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "Gmail API Error: \(errStr)"])
+            throw NSError(domain: "GmailService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Gmail API Error: \(errStr)"])
         }
         
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -167,20 +210,23 @@ public final class GmailService: NSObject, EmailServiceProtocol, ASWebAuthentica
     }
     
     public func searchEmails(query: String, maxCount: Int = 25) async throws -> [EmailItem] {
-        guard let token = accessToken else {
-            throw NSError(
-                domain: "GmailService",
-                code: 401,
-                userInfo: [NSLocalizedDescriptionKey: "Not signed in to Gmail. Please tap 'Sign In to Google (Gmail)' in Settings."]
-            )
-        }
+        var token = try await getValidAccessToken()
         
         let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         let url = URL(string: "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=\(maxCount)&q=\(encodedQuery)")!
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         
-        let (data, response) = try await URLSession.shared.data(for: request)
+        var (data, response) = try await URLSession.shared.data(for: request)
+        
+        if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 401 {
+            token = try await refreshAccessToken()
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            let retryResult = try await URLSession.shared.data(for: request)
+            data = retryResult.0
+            response = retryResult.1
+        }
+        
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             return []
         }
@@ -200,7 +246,7 @@ public final class GmailService: NSObject, EmailServiceProtocol, ASWebAuthentica
     }
     
     public func getEmailDetails(id: String) async throws -> EmailItem? {
-        guard let token = accessToken else { return nil }
+        let token = try await getValidAccessToken()
         
         let url = URL(string: "https://gmail.googleapis.com/gmail/v1/users/me/messages/\(id)?format=full")!
         var request = URLRequest(url: url)
