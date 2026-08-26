@@ -15,10 +15,9 @@ import AppKit
 public final class OutlookService: NSObject, EmailServiceProtocol, ASWebAuthenticationPresentationContextProviding {
     public static let shared = OutlookService()
     
-    public var providerName: String { "Student Outlook (Microsoft Graph)" }
+    public var providerName: String { "Student Outlook (Microsoft 365)" }
     
-    private let tokenKey = "ms_graph_access_token"
-    private let refreshTokenKey = "ms_graph_refresh_token"
+    private let tokenKey = "outlook_access_token"
     
     public var isAuthenticated: Bool {
         guard let token = UserDefaults.standard.string(forKey: tokenKey), !token.isEmpty else {
@@ -33,16 +32,15 @@ public final class OutlookService: NSObject, EmailServiceProtocol, ASWebAuthenti
     
     public func authenticate() async throws -> Bool {
         let clientID = AppConfig.outlookClientID
-        let tenant = AppConfig.outlookTenantID
+        let tenantID = AppConfig.outlookTenantID
         let redirectURI = AppConfig.outlookRedirectURI
-        let scopes = "Mail.Read User.Read offline_access"
+        let scopes = "Mail.Read Calendars.ReadWrite offline_access User.Read"
         
-        guard clientID != "YOUR_MICROSOFT_APP_CLIENT_ID" else {
-            print("[OutlookService] Warning: Client ID not configured. Use demo inbox or set in Secrets.swift.")
-            return false
+        guard !clientID.contains("YOUR_MICROSOFT_APP_CLIENT_ID") else {
+            throw NSError(domain: "OutlookService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Outlook Client ID is not configured."])
         }
         
-        guard let authURL = URL(string: "https://login.microsoftonline.com/\(tenant)/oauth2/v2.0/authorize?client_id=\(clientID)&response_type=code&redirect_uri=\(redirectURI)&response_mode=query&scope=\(scopes.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")") else {
+        guard let authURL = URL(string: "https://login.microsoftonline.com/\(tenantID)/oauth2/v2.0/authorize?client_id=\(clientID)&response_type=token&redirect_uri=\(redirectURI)&scope=\(scopes.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")") else {
             throw NSError(domain: "OutlookService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid OAuth URL."])
         }
         
@@ -54,20 +52,24 @@ public final class OutlookService: NSObject, EmailServiceProtocol, ASWebAuthenti
                 }
                 
                 guard let callbackURL = callbackURL,
-                      let components = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false),
-                      let code = components.queryItems?.first(where: { $0.name == "code" })?.value else {
-                    continuation.resume(throwing: NSError(domain: "OutlookService", code: -2, userInfo: [NSLocalizedDescriptionKey: "No auth code received."]))
+                      let fragment = callbackURL.fragment else {
+                    continuation.resume(returning: false)
                     return
                 }
                 
-                // Exchange code for token
-                Task {
-                    do {
-                        let success = try await self.exchangeCodeForToken(code: code)
-                        continuation.resume(returning: success)
-                    } catch {
-                        continuation.resume(throwing: error)
+                // Parse access_token from URL fragment
+                let params = fragment.components(separatedBy: "&").reduce(into: [String: String]()) { dict, pair in
+                    let parts = pair.components(separatedBy: "=")
+                    if parts.count == 2 {
+                        dict[parts[0]] = parts[1]
                     }
+                }
+                
+                if let token = params["access_token"] {
+                    UserDefaults.standard.set(token, forKey: self.tokenKey)
+                    continuation.resume(returning: true)
+                } else {
+                    continuation.resume(returning: false)
                 }
             }
             session.presentationContextProvider = self
@@ -75,57 +77,22 @@ public final class OutlookService: NSObject, EmailServiceProtocol, ASWebAuthenti
         }
     }
     
-    private func exchangeCodeForToken(code: String) async throws -> Bool {
-        let tokenURL = URL(string: "https://login.microsoftonline.com/\(AppConfig.outlookTenantID)/oauth2/v2.0/token")!
-        var request = URLRequest(url: tokenURL)
-        request.httpMethod = "POST"
-        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        
-        let bodyParams = [
-            "client_id": AppConfig.outlookClientID,
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": AppConfig.outlookRedirectURI
-        ]
-        
-        request.httpBody = bodyParams.map { "\($0.key)=\($0.value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")" }
-            .joined(separator: "&")
-            .data(using: .utf8)
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw NSError(domain: "OutlookService", code: -3, userInfo: [NSLocalizedDescriptionKey: "Token exchange failed."])
-        }
-        
-        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let accessToken = json["access_token"] as? String {
-            UserDefaults.standard.set(accessToken, forKey: tokenKey)
-            if let refreshToken = json["refresh_token"] as? String {
-                UserDefaults.standard.set(refreshToken, forKey: refreshTokenKey)
-            }
-            return true
-        }
-        
-        return false
-    }
-    
     public func signOut() async throws {
         UserDefaults.standard.removeObject(forKey: tokenKey)
-        UserDefaults.standard.removeObject(forKey: refreshTokenKey)
     }
     
     public func fetchRecentEmails(hoursBack: Int = 48, maxCount: Int = 20) async throws -> [EmailItem] {
         guard let token = accessToken else {
-            return SimulatedEmailService.shared.getSampleStudentEmails()
+            throw NSError(domain: "OutlookService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not signed in to Outlook. Please sign in via Settings."])
         }
         
-        let url = URL(string: "https://graph.microsoft.com/v1.0/me/messages?$top=\(maxCount)&$select=id,subject,from,receivedDateTime,bodyPreview,isRead&$orderby=receivedDateTime%20desc")!
+        let url = URL(string: "https://graph.microsoft.com/v1.0/me/messages?$top=\(maxCount)&$select=id,subject,bodyPreview,body,from,receivedDateTime,isRead&$orderby=receivedDateTime%20desc")!
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            return SimulatedEmailService.shared.getSampleStudentEmails()
+            throw NSError(domain: "OutlookService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Failed to fetch messages from Microsoft Graph."])
         }
         
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -133,51 +100,22 @@ public final class OutlookService: NSObject, EmailServiceProtocol, ASWebAuthenti
             return []
         }
         
-        return values.compactMap { dict -> EmailItem? in
-            let id = dict["id"] as? String ?? UUID().uuidString
-            let subject = dict["subject"] as? String ?? "(No Subject)"
-            let bodyPreview = dict["bodyPreview"] as? String ?? ""
-            let isRead = dict["isRead"] as? Bool ?? false
-            
-            var senderName = "Unknown"
-            var senderEmail = ""
-            if let from = dict["from"] as? [String: Any],
-               let emailAddress = from["emailAddress"] as? [String: Any] {
-                senderName = emailAddress["name"] as? String ?? "Unknown"
-                senderEmail = emailAddress["address"] as? String ?? ""
+        var results: [EmailItem] = []
+        for val in values {
+            if let item = parseGraphMessage(val) {
+                results.append(item)
             }
-            
-            let dateFormatter = ISO8601DateFormatter()
-            let dateStr = dict["receivedDateTime"] as? String ?? ""
-            let date = dateFormatter.date(from: dateStr) ?? Date()
-            
-            let urgency = Self.classifyEmail(subject: subject, sender: senderName, body: bodyPreview)
-            
-            return EmailItem(
-                id: id,
-                senderName: senderName,
-                senderEmail: senderEmail,
-                subject: subject,
-                receivedDate: date,
-                bodySnippet: bodyPreview,
-                isUnread: !isRead,
-                urgency: urgency
-            )
         }
+        return results
     }
     
     public func searchEmails(query: String, maxCount: Int = 15) async throws -> [EmailItem] {
         guard let token = accessToken else {
-            return SimulatedEmailService.shared.getSampleStudentEmails().filter {
-                $0.subject.localizedCaseInsensitiveContains(query) ||
-                $0.senderName.localizedCaseInsensitiveContains(query) ||
-                $0.bodySnippet.localizedCaseInsensitiveContains(query)
-            }
+            throw NSError(domain: "OutlookService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Not signed in to Outlook."])
         }
         
         let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        let searchString = "\"\(encodedQuery)\""
-        let url = URL(string: "https://graph.microsoft.com/v1.0/me/messages?$search=\(searchString)&$top=\(maxCount)&$select=id,subject,from,receivedDateTime,bodyPreview,isRead")!
+        let url = URL(string: "https://graph.microsoft.com/v1.0/me/messages?$search=\"\(encodedQuery)\"&$top=\(maxCount)&$select=id,subject,bodyPreview,body,from,receivedDateTime,isRead")!
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         
@@ -191,41 +129,19 @@ public final class OutlookService: NSObject, EmailServiceProtocol, ASWebAuthenti
             return []
         }
         
-        return values.compactMap { dict -> EmailItem? in
-            let id = dict["id"] as? String ?? UUID().uuidString
-            let subject = dict["subject"] as? String ?? "(No Subject)"
-            let bodyPreview = dict["bodyPreview"] as? String ?? ""
-            let isRead = dict["isRead"] as? Bool ?? false
-            
-            var senderName = "Unknown"
-            var senderEmail = ""
-            if let from = dict["from"] as? [String: Any],
-               let emailAddress = from["emailAddress"] as? [String: Any] {
-                senderName = emailAddress["name"] as? String ?? "Unknown"
-                senderEmail = emailAddress["address"] as? String ?? ""
+        var results: [EmailItem] = []
+        for val in values {
+            if let item = parseGraphMessage(val) {
+                results.append(item)
             }
-            
-            let urgency = Self.classifyEmail(subject: subject, sender: senderName, body: bodyPreview)
-            
-            return EmailItem(
-                id: id,
-                senderName: senderName,
-                senderEmail: senderEmail,
-                subject: subject,
-                receivedDate: Date(),
-                bodySnippet: bodyPreview,
-                isUnread: !isRead,
-                urgency: urgency
-            )
         }
+        return results
     }
     
     public func getEmailDetails(id: String) async throws -> EmailItem? {
-        guard let token = accessToken else {
-            return SimulatedEmailService.shared.getSampleStudentEmails().first(where: { $0.id == id })
-        }
+        guard let token = accessToken else { return nil }
         
-        let url = URL(string: "https://graph.microsoft.com/v1.0/me/messages/\(id)")!
+        let url = URL(string: "https://graph.microsoft.com/v1.0/me/messages/\(id)?$select=id,subject,bodyPreview,body,from,receivedDateTime,isRead")!
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         
@@ -238,42 +154,60 @@ public final class OutlookService: NSObject, EmailServiceProtocol, ASWebAuthenti
             return nil
         }
         
-        let subject = dict["subject"] as? String ?? ""
+        return parseGraphMessage(dict)
+    }
+    
+    private func parseGraphMessage(_ dict: [String: Any]) -> EmailItem? {
+        guard let id = dict["id"] as? String else { return nil }
+        let subject = dict["subject"] as? String ?? "(No Subject)"
+        let bodyPreview = dict["bodyPreview"] as? String ?? ""
         let bodyDict = dict["body"] as? [String: Any]
-        let content = bodyDict?["content"] as? String ?? (dict["bodyPreview"] as? String ?? "")
+        let fullBody = bodyDict?["content"] as? String ?? bodyPreview
+        let isRead = dict["isRead"] as? Bool ?? false
         
         var senderName = "Unknown"
-        var senderEmail = ""
-        if let from = dict["from"] as? [String: Any],
-           let emailAddress = from["emailAddress"] as? [String: Any] {
+        var senderEmail = "unknown@university.edu"
+        if let fromDict = dict["from"] as? [String: Any],
+           let emailAddress = fromDict["emailAddress"] as? [String: Any] {
             senderName = emailAddress["name"] as? String ?? "Unknown"
-            senderEmail = emailAddress["address"] as? String ?? ""
+            senderEmail = emailAddress["address"] as? String ?? "unknown@university.edu"
         }
+        
+        let dateStr = dict["receivedDateTime"] as? String ?? ""
+        let date = ISO8601DateFormatter().date(from: dateStr) ?? Date()
+        
+        let urgency = Self.classifyEmail(subject: subject, sender: senderName, body: fullBody)
         
         return EmailItem(
             id: id,
             senderName: senderName,
             senderEmail: senderEmail,
             subject: subject,
-            receivedDate: Date(),
-            bodySnippet: dict["bodyPreview"] as? String ?? "",
-            fullBody: content,
-            urgency: Self.classifyEmail(subject: subject, sender: senderName, body: content)
+            receivedDate: date,
+            bodySnippet: bodyPreview,
+            fullBody: fullBody,
+            isUnread: !isRead,
+            urgency: urgency
         )
     }
     
     public static func classifyEmail(subject: String, sender: String, body: String) -> EmailUrgency {
-        let text = "\(subject) \(sender) \(body)".lowercased()
-        if text.contains("advisor") || text.contains("schedule") || text.contains("i-9") || text.contains("i9") || text.contains("urgent") || text.contains("appointment") || text.contains("deadline") {
+        let combined = "\(subject) \(sender) \(body)".lowercased()
+        
+        if combined.contains("urgent") || combined.contains("i-9") || combined.contains("advising") ||
+           combined.contains("calendly.com") || combined.contains("deadline") || combined.contains("action required") {
             return .urgent
         }
-        if text.contains("prof") || text.contains("syllabus") || text.contains("homework") || text.contains("exam") || text.contains("assignment") || text.contains("lecture") || text.contains("canvas") || text.contains("class") {
+        if combined.contains("syllabus") || combined.contains("homework") || combined.contains("phys") ||
+           combined.contains("exam") || combined.contains("assignment") || combined.contains("lecture") {
             return .course
         }
-        if text.contains("research") || text.contains("student government") || text.contains("internship") || text.contains("job") || text.contains("opportunity") {
+        if combined.contains("student gov") || combined.contains("job") || combined.contains("hiring") ||
+           combined.contains("bug") || combined.contains("elections") || combined.contains("fix") {
             return .opportunity
         }
-        if text.contains("club") || text.contains("newsletter") || text.contains("meeting") || text.contains("campus") {
+        if combined.contains("club") || combined.contains("fair") || combined.contains("newsletter") ||
+           combined.contains("announcement") {
             return .newsletter
         }
         return .general

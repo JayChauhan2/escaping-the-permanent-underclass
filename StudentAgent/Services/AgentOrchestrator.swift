@@ -32,7 +32,7 @@ public final class AgentOrchestrator: ObservableObject {
         switch currentProvider {
         case .outlook: return OutlookService.shared
         case .gmail: return GmailService.shared
-        case .simulated: return SimulatedEmailServiceWrapper.shared
+        case .simulated: return GmailService.shared
         }
     }
     
@@ -41,17 +41,17 @@ public final class AgentOrchestrator: ObservableObject {
         return [
             DeepSeekToolDefinition(
                 name: "fetch_recent_emails",
-                description: "Fetches recent student emails from Outlook/Gmail inbox.",
+                description: "Fetches recent student emails from live Gmail/Outlook inbox with full message bodies.",
                 parameters: [
                     "type": AnyCodable("object"),
                     "properties": AnyCodable([
                         "hours_back": [
                             "type": "integer",
-                            "description": "Number of hours back to check (e.g. 24 or 48)"
+                            "description": "Number of hours back to check"
                         ],
                         "max_count": [
                             "type": "integer",
-                            "description": "Maximum number of emails to retrieve (e.g. 2 or 5)"
+                            "description": "Maximum number of emails to retrieve (e.g. 10, 25, or 50)"
                         ]
                     ]),
                     "required": AnyCodable([])
@@ -102,6 +102,36 @@ public final class AgentOrchestrator: ObservableObject {
                 ]
             ),
             DeepSeekToolDefinition(
+                name: "commit_calendar_event",
+                description: "Directly adds a confirmed event to the user's Apple Calendar. Use when user confirms via chat ('Yes, add it', 'Go ahead', 'Add to calendar').",
+                parameters: [
+                    "type": AnyCodable("object"),
+                    "properties": AnyCodable([
+                        "title": [
+                            "type": "string",
+                            "description": "Event title"
+                        ],
+                        "start_date_iso": [
+                            "type": "string",
+                            "description": "ISO 8601 start date-time string"
+                        ],
+                        "end_date_iso": [
+                            "type": "string",
+                            "description": "ISO 8601 end date-time string"
+                        ],
+                        "notes": [
+                            "type": "string",
+                            "description": "Notes or booking link"
+                        ],
+                        "is_all_day": [
+                            "type": "boolean",
+                            "description": "Whether all day"
+                        ]
+                    ]),
+                    "required": AnyCodable(["title", "start_date_iso"])
+                ]
+            ),
+            DeepSeekToolDefinition(
                 name: "propose_reminder",
                 description: "Drafts a proposed Apple Reminder task for the user to confirm.",
                 parameters: [
@@ -122,13 +152,35 @@ public final class AgentOrchestrator: ObservableObject {
                     ]),
                     "required": AnyCodable(["title"])
                 ]
+            ),
+            DeepSeekToolDefinition(
+                name: "commit_reminder",
+                description: "Directly adds a confirmed reminder to Apple Reminders. Use when user confirms via chat.",
+                parameters: [
+                    "type": AnyCodable("object"),
+                    "properties": AnyCodable([
+                        "title": [
+                            "type": "string",
+                            "description": "Reminder task title"
+                        ],
+                        "due_date_iso": [
+                            "type": "string",
+                            "description": "ISO 8601 due date-time string"
+                        ],
+                        "notes": [
+                            "type": "string",
+                            "description": "Notes"
+                        ]
+                    ]),
+                    "required": AnyCodable(["title"])
+                ]
             )
         ]
     }
     
     // Caveman Mode System Instructions baked directly into student agent
     private var systemPrompt: String {
-        let nowString = ISO8601DateFormatter().string(from: Date())
+        let nowString = DateFormatter.localizedString(from: Date(), dateStyle: .full, timeStyle: .short)
         return """
         Current Time: \(nowString).
         
@@ -140,7 +192,8 @@ public final class AgentOrchestrator: ObservableObject {
         
         # OPERATING RULES:
         1. Only call email tools when user asks about emails, tasks, schedule, advisor, classes, or student gov.
-        2. Never say calendar event was added. State it was drafted for confirmation.
+        2. When finding a deadline or meeting, propose calendar/reminder draft cards first.
+        3. If user says 'add it', 'go ahead', 'confirm', or confirms in chat, use `commit_calendar_event` or `commit_reminder` immediately.
         """
     }
     
@@ -288,7 +341,7 @@ public final class AgentOrchestrator: ObservableObject {
                 debugLogger.log(type: .error, title: "Processing Error", payload: error.localizedDescription)
                 let errorMsg = ChatMessageItem(
                     role: .assistant,
-                    content: "⚠️ Error: \(error.localizedDescription)",
+                    content: "⚠️ \(error.localizedDescription)",
                     conversationId: conversationId
                 )
                 storage.addMessage(errorMsg)
@@ -304,13 +357,17 @@ public final class AgentOrchestrator: ObservableObject {
     private func describeToolCall(name: String) -> (icon: String, label: String) {
         switch name {
         case "fetch_recent_emails":
-            return ("envelope.badge.shield.half.filled", "Reading recent emails...")
+            return ("envelope.badge.shield.half.filled", "Reading inbox messages...")
         case "search_emails":
             return ("magnifyingglass", "Searching relevant emails...")
         case "propose_calendar_event":
             return ("calendar.badge.plus", "Drafting calendar event...")
+        case "commit_calendar_event":
+            return ("calendar.badge.checkmark", "Writing to Apple Calendar...")
         case "propose_reminder":
             return ("checklist", "Drafting reminder task...")
+        case "commit_reminder":
+            return ("checklist.checked", "Writing to Apple Reminders...")
         default:
             return ("gearshape.2.fill", "Executing tool...")
         }
@@ -328,22 +385,23 @@ public final class AgentOrchestrator: ObservableObject {
         switch name {
         case "fetch_recent_emails":
             let hours = args["hours_back"] as? Int ?? 48
-            let maxCount = args["max_count"] as? Int ?? 10
+            let maxCount = args["max_count"] as? Int ?? 20
             let emails = try await activeEmailService.fetchRecentEmails(hoursBack: hours, maxCount: maxCount)
             collectedEmails.append(contentsOf: emails)
             
             let summaries = emails.map { item in
-                return "From: \(item.senderName) | Subject: \(item.subject) | Date: \(item.receivedDate) | Snippet: \(item.bodySnippet)"
+                return "From: \(item.senderName)\nSubject: \(item.subject)\nDate: \(item.receivedDate)\nFull Content:\n\(item.fullBody ?? item.bodySnippet)"
             }.joined(separator: "\n---\n")
             return summaries.isEmpty ? "No recent emails found." : summaries
             
         case "search_emails":
             let query = args["query"] as? String ?? ""
-            let emails = try await activeEmailService.searchEmails(query: query, maxCount: 10)
+            let maxCount = args["max_count"] as? Int ?? 15
+            let emails = try await activeEmailService.searchEmails(query: query, maxCount: maxCount)
             collectedEmails.append(contentsOf: emails)
             
             let summaries = emails.map { item in
-                return "From: \(item.senderName) | Subject: \(item.subject) | Snippet: \(item.bodySnippet)"
+                return "From: \(item.senderName)\nSubject: \(item.subject)\nFull Content:\n\(item.fullBody ?? item.bodySnippet)"
             }.joined(separator: "\n---\n")
             return summaries.isEmpty ? "No emails matching query '\(query)'." : summaries
             
@@ -368,6 +426,37 @@ public final class AgentOrchestrator: ObservableObject {
             collectedActions.append(action)
             return "Drafted calendar event '\(title)' for: \(startDate)."
             
+        case "commit_calendar_event":
+            let title = args["title"] as? String ?? "Event"
+            let startStr = args["start_date_iso"] as? String ?? ""
+            let startDate = isoFormatter.date(from: startStr) ?? Date().addingTimeInterval(86400)
+            let endStr = args["end_date_iso"] as? String
+            let endDate = endStr != nil ? isoFormatter.date(from: endStr!) : nil
+            let notes = args["notes"] as? String
+            let isAllDay = args["is_all_day"] as? Bool ?? false
+            
+            let createdId = try await eventKit.commitCalendarEvent(
+                title: title,
+                startDate: startDate,
+                endDate: endDate,
+                isAllDay: isAllDay,
+                notes: notes
+            )
+            debugLogger.log(type: .eventKit, title: "Calendar Event Committed", payload: "Title: \(title), ID: \(createdId)")
+            
+            let action = CalendarAction(
+                type: .calendarEvent,
+                title: title,
+                notes: notes,
+                startDate: startDate,
+                endDate: endDate,
+                isAllDay: isAllDay,
+                status: .confirmed,
+                createdEventIdentifier: createdId
+            )
+            collectedActions.append(action)
+            return "SUCCESS: Event '\(title)' committed to Apple Calendar with ID: \(createdId)."
+            
         case "propose_reminder":
             let title = args["title"] as? String ?? "Reminder"
             let dueStr = args["due_date_iso"] as? String
@@ -383,6 +472,30 @@ public final class AgentOrchestrator: ObservableObject {
             )
             collectedActions.append(action)
             return "Drafted reminder '\(title)'."
+            
+        case "commit_reminder":
+            let title = args["title"] as? String ?? "Reminder"
+            let dueStr = args["due_date_iso"] as? String
+            let dueDate = dueStr != nil ? isoFormatter.date(from: dueStr!) : nil
+            let notes = args["notes"] as? String
+            
+            let createdId = try await eventKit.commitReminder(
+                title: title,
+                dueDate: dueDate,
+                notes: notes
+            )
+            debugLogger.log(type: .eventKit, title: "Apple Reminder Committed", payload: "Title: \(title), ID: \(createdId)")
+            
+            let action = CalendarAction(
+                type: .appleReminder,
+                title: title,
+                notes: notes,
+                startDate: dueDate ?? Date(),
+                status: .confirmed,
+                createdEventIdentifier: createdId
+            )
+            collectedActions.append(action)
+            return "SUCCESS: Reminder '\(title)' committed to Apple Reminders."
             
         default:
             return "Tool \(name) executed."
@@ -417,32 +530,5 @@ public final class AgentOrchestrator: ObservableObject {
             newStatus: .confirmed,
             eventId: createdId
         )
-    }
-}
-
-// Wrapper for Simulated Service
-public final class SimulatedEmailServiceWrapper: EmailServiceProtocol {
-    public static let shared = SimulatedEmailServiceWrapper()
-    public var providerName: String { "Simulated Student Inbox" }
-    public var isAuthenticated: Bool { true }
-    
-    public func authenticate() async throws -> Bool { true }
-    public func signOut() async throws {}
-    
-    public func fetchRecentEmails(hoursBack: Int, maxCount: Int) async throws -> [EmailItem] {
-        let all = SimulatedEmailService.shared.getSampleStudentEmails()
-        return Array(all.prefix(maxCount))
-    }
-    
-    public func searchEmails(query: String, maxCount: Int) async throws -> [EmailItem] {
-        let filtered = SimulatedEmailService.shared.getSampleStudentEmails().filter {
-            $0.subject.localizedCaseInsensitiveContains(query) ||
-            $0.bodySnippet.localizedCaseInsensitiveContains(query)
-        }
-        return Array(filtered.prefix(maxCount))
-    }
-    
-    public func getEmailDetails(id: String) async throws -> EmailItem? {
-        return SimulatedEmailService.shared.getSampleStudentEmails().first(where: { $0.id == id })
     }
 }

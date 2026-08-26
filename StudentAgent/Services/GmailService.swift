@@ -36,8 +36,7 @@ public final class GmailService: NSObject, EmailServiceProtocol, ASWebAuthentica
         let scopes = "https://www.googleapis.com/auth/gmail.readonly"
         
         guard !clientID.contains("YOUR_GOOGLE_CLIENT_ID") else {
-            print("[GmailService] Warning: Client ID not configured.")
-            return false
+            throw NSError(domain: "GmailService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Gmail Client ID is not configured."])
         }
         
         guard let authURL = URL(string: "https://accounts.google.com/o/oauth2/v2/auth?client_id=\(clientID)&redirect_uri=\(redirectURI)&response_type=token&scope=\(scopes.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")") else {
@@ -83,16 +82,29 @@ public final class GmailService: NSObject, EmailServiceProtocol, ASWebAuthentica
     
     public func fetchRecentEmails(hoursBack: Int = 48, maxCount: Int = 20) async throws -> [EmailItem] {
         guard let token = accessToken else {
-            return SimulatedEmailService.shared.getSampleStudentEmails()
+            throw NSError(
+                domain: "GmailService",
+                code: 401,
+                userInfo: [NSLocalizedDescriptionKey: "Not signed in to Gmail. Please tap 'Sign In to Google (Gmail)' in Settings."]
+            )
         }
         
-        let url = URL(string: "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=\(maxCount)&q=newer_than:2d")!
+        let url = URL(string: "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=\(maxCount)&q=newer_than:7d")!
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         
         let (data, response) = try await URLSession.shared.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            return SimulatedEmailService.shared.getSampleStudentEmails()
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NSError(domain: "GmailService", code: -1, userInfo: [NSLocalizedDescriptionKey: "No response from Gmail."])
+        }
+        
+        guard httpResponse.statusCode == 200 else {
+            if httpResponse.statusCode == 401 {
+                UserDefaults.standard.removeObject(forKey: tokenKey)
+                throw NSError(domain: "GmailService", code: 401, userInfo: [NSLocalizedDescriptionKey: "Gmail session expired. Please sign in again in Settings."])
+            }
+            let errStr = String(data: data, encoding: .utf8) ?? ""
+            throw NSError(domain: "GmailService", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "Gmail API Error: \(errStr)"])
         }
         
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -101,7 +113,7 @@ public final class GmailService: NSObject, EmailServiceProtocol, ASWebAuthentica
         }
         
         var results: [EmailItem] = []
-        for msg in messages.prefix(10) {
+        for msg in messages.prefix(maxCount) {
             if let id = msg["id"] as? String, let item = try? await getEmailDetails(id: id) {
                 results.append(item)
             }
@@ -111,11 +123,11 @@ public final class GmailService: NSObject, EmailServiceProtocol, ASWebAuthentica
     
     public func searchEmails(query: String, maxCount: Int = 15) async throws -> [EmailItem] {
         guard let token = accessToken else {
-            return SimulatedEmailService.shared.getSampleStudentEmails().filter {
-                $0.subject.localizedCaseInsensitiveContains(query) ||
-                $0.senderName.localizedCaseInsensitiveContains(query) ||
-                $0.bodySnippet.localizedCaseInsensitiveContains(query)
-            }
+            throw NSError(
+                domain: "GmailService",
+                code: 401,
+                userInfo: [NSLocalizedDescriptionKey: "Not signed in to Gmail. Please tap 'Sign In to Google (Gmail)' in Settings."]
+            )
         }
         
         let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
@@ -134,7 +146,7 @@ public final class GmailService: NSObject, EmailServiceProtocol, ASWebAuthentica
         }
         
         var results: [EmailItem] = []
-        for msg in messages.prefix(8) {
+        for msg in messages.prefix(maxCount) {
             if let id = msg["id"] as? String, let item = try? await getEmailDetails(id: id) {
                 results.append(item)
             }
@@ -143,9 +155,7 @@ public final class GmailService: NSObject, EmailServiceProtocol, ASWebAuthentica
     }
     
     public func getEmailDetails(id: String) async throws -> EmailItem? {
-        guard let token = accessToken else {
-            return SimulatedEmailService.shared.getSampleStudentEmails().first(where: { $0.id == id })
-        }
+        guard let token = accessToken else { return nil }
         
         let url = URL(string: "https://gmail.googleapis.com/gmail/v1/users/me/messages/\(id)?format=full")!
         var request = URLRequest(url: url)
@@ -166,6 +176,9 @@ public final class GmailService: NSObject, EmailServiceProtocol, ASWebAuthentica
         let from = headers.first(where: { $0["name"]?.lowercased() == "from" })?["value"] ?? "Unknown"
         let snippet = dict["snippet"] as? String ?? ""
         
+        // Extract Full Body (decode base64url from parts or body)
+        let fullBody = extractBody(from: payload) ?? snippet
+        
         return EmailItem(
             id: id,
             senderName: from,
@@ -173,9 +186,56 @@ public final class GmailService: NSObject, EmailServiceProtocol, ASWebAuthentica
             subject: subject,
             receivedDate: Date(),
             bodySnippet: snippet,
-            fullBody: snippet,
-            urgency: OutlookService.classifyEmail(subject: subject, sender: from, body: snippet)
+            fullBody: fullBody,
+            urgency: OutlookService.classifyEmail(subject: subject, sender: from, body: fullBody)
         )
+    }
+    
+    private func extractBody(from payload: [String: Any]) -> String? {
+        // Direct body data
+        if let body = payload["body"] as? [String: Any],
+           let base64Data = body["data"] as? String,
+           let text = decodeBase64URL(base64Data) {
+            return cleanEmailText(text)
+        }
+        
+        // Multipart parts
+        if let parts = payload["parts"] as? [[String: Any]] {
+            for part in parts {
+                let mimeType = part["mimeType"] as? String ?? ""
+                if mimeType == "text/plain" || mimeType == "text/html" {
+                    if let body = part["body"] as? [String: Any],
+                       let base64Data = body["data"] as? String,
+                       let text = decodeBase64URL(base64Data) {
+                        return cleanEmailText(text)
+                    }
+                }
+            }
+        }
+        return nil
+    }
+    
+    private func decodeBase64URL(_ string: String) -> String? {
+        var base64 = string
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        
+        while base64.count % 4 != 0 {
+            base64.append("=")
+        }
+        
+        guard let data = Data(base64Encoded: base64) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+    
+    private func cleanEmailText(_ text: String) -> String {
+        // Strip HTML tags for clean model comprehension
+        var cleaned = text.replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
+        cleaned = cleaned.replacingOccurrences(of: "&nbsp;", with: " ")
+        cleaned = cleaned.replacingOccurrences(of: "&amp;", with: "&")
+        cleaned = cleaned.replacingOccurrences(of: "&lt;", with: "<")
+        cleaned = cleaned.replacingOccurrences(of: "&gt;", with: ">")
+        return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
     @MainActor
@@ -190,84 +250,5 @@ public final class GmailService: NSObject, EmailServiceProtocol, ASWebAuthentica
         #else
         return ASPresentationAnchor()
         #endif
-    }
-}
-
-// MARK: - Simulated Email Service (for immediate testing & offline demo)
-public final class SimulatedEmailService {
-    public static let shared = SimulatedEmailService()
-    
-    public func getSampleStudentEmails() -> [EmailItem] {
-        return [
-            EmailItem(
-                id: "msg_advisor_01",
-                senderName: "Dr. Robert Vance (Academic Advisor)",
-                senderEmail: "rvance@university.edu",
-                subject: "URGENT: Mandatory Fall Degree Planning & Booking Appointment",
-                receivedDate: Date().addingTimeInterval(-3600 * 2),
-                bodySnippet: "Hi Jay, Please make sure to book your 1-on-1 academic advising session before the end of the week. Slots are filling up. Here is my booking link: https://calendly.com/advising-vance/fall24",
-                isUnread: true,
-                urgency: .urgent,
-                extractedActionItems: [
-                    "Book 1-on-1 academic advising appointment with Dr. Vance",
-                    "Deadline: End of this week"
-                ]
-            ),
-            EmailItem(
-                id: "msg_sg_i9",
-                senderName: "Student Government HR / Payroll",
-                senderEmail: "studentgov-payroll@university.edu",
-                subject: "Action Required: Complete Form I-9 for Student Government Employment",
-                receivedDate: Date().addingTimeInterval(-3600 * 5),
-                bodySnippet: "Hello, You must complete Section 1 of Form I-9 online and bring your original ID documents to the Campus Employment Office within 3 business days of hire.",
-                isUnread: true,
-                urgency: .urgent,
-                extractedActionItems: [
-                    "Fill out Form I-9 Section 1 online",
-                    "Bring physical ID documents to Campus Employment Office within 3 days"
-                ]
-            ),
-            EmailItem(
-                id: "msg_sg_web",
-                senderName: "Sarah Lin (Student Gov VP)",
-                senderEmail: "slin@studentgov.org",
-                subject: "Student Gov Portal - Broken navigation links on election page",
-                receivedDate: Date().addingTimeInterval(-3600 * 8),
-                bodySnippet: "Hey Jay, when you get a chance, can you take a look at the elections tab on the website? The mobile menu links are currently 404ing.",
-                isUnread: true,
-                urgency: .opportunity,
-                extractedActionItems: [
-                    "Fix broken navigation links on Student Government elections page"
-                ]
-            ),
-            EmailItem(
-                id: "msg_phys211",
-                senderName: "Prof. Alan Turing (PHYS 211)",
-                senderEmail: "aturing@physics.edu",
-                subject: "PHYS 211: Welcome to Physics - Course Syllabus & First Homework Due Date",
-                receivedDate: Date().addingTimeInterval(-3600 * 14),
-                bodySnippet: "Welcome everyone. Please review the syllabus posted on the course website. Note that Homework 1 will be due next Tuesday at 11:59 PM.",
-                isUnread: false,
-                urgency: .course,
-                extractedActionItems: [
-                    "Review PHYS 211 syllabus",
-                    "Submit Homework 1 by next Tuesday 11:59 PM"
-                ],
-                proposedEventDate: Calendar.current.date(byAdding: .day, value: 7, to: Date())
-            ),
-            EmailItem(
-                id: "msg_clubs_01",
-                senderName: "Campus Activities Board",
-                senderEmail: "cab@university.edu",
-                subject: "Fall Club Fair & Open Registrations this Thursday!",
-                receivedDate: Date().addingTimeInterval(-3600 * 20),
-                bodySnippet: "Join us in the Main Quad from 11 AM - 3 PM to explore over 150 student clubs, hackathons, and engineering societies.",
-                isUnread: false,
-                urgency: .newsletter,
-                extractedActionItems: [
-                    "Club Fair on Main Quad Thursday 11 AM - 3 PM"
-                ]
-            )
-        ]
     }
 }
