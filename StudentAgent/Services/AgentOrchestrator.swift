@@ -24,6 +24,8 @@ public final class AgentOrchestrator: ObservableObject {
     private let storage = ChatStorage.shared
     private let debugLogger = DebugLogger.shared
     
+    private var activeProcessingTask: Task<Void, Never>?
+    
     public init() {}
     
     public var activeEmailService: EmailServiceProtocol {
@@ -124,20 +126,47 @@ public final class AgentOrchestrator: ObservableObject {
         ]
     }
     
+    // Caveman Mode System Instructions baked directly into student agent
     private var systemPrompt: String {
         let nowString = ISO8601DateFormatter().string(from: Date())
         return """
-        You are an intelligent executive student assistant for an undergraduate student on mobile iOS.
         Current Time: \(nowString).
         
-        RULES:
-        1. Keep responses ultra-concise, structured, and punchy in bullet points.
-        2. Only call email tools when the user asks about emails, tasks, schedule, advisor, classes, or student gov.
-        3. Never say a calendar event or reminder was added. State that you drafted it for their confirmation.
+        # CAVEMAN MODE INSTRUCTIONS:
+        - No filler: Drop articles (a, an, the), pleasantries, preambles, and conversational hedging.
+        - Be direct: Short sentences, keywords, actionable steps.
+        - Keep meaning: Preserve full technical accuracy, dates, links, names, and course details.
+        - Structure: [Thing] [Action] [Reason] -> [Next Step].
+        
+        # OPERATING RULES:
+        1. Only call email tools when user asks about emails, tasks, schedule, advisor, classes, or student gov.
+        2. Never say calendar event was added. State it was drafted for confirmation.
         """
     }
     
     public func processUserMessage(
+        text: String,
+        conversationId: String
+    ) {
+        // Cancel any existing task
+        activeProcessingTask?.cancel()
+        
+        activeProcessingTask = Task {
+            await executeAgentTurn(text: text, conversationId: conversationId)
+        }
+    }
+    
+    public func stopGeneration() {
+        activeProcessingTask?.cancel()
+        activeProcessingTask = nil
+        withAnimation {
+            isProcessing = false
+            currentStep = nil
+        }
+        debugLogger.log(type: .general, title: "Generation Stopped", payload: "User tapped stop button.")
+    }
+    
+    private func executeAgentTurn(
         text: String,
         conversationId: String
     ) async {
@@ -165,6 +194,7 @@ public final class AgentOrchestrator: ObservableObject {
             
             var currentTurn = 0
             while currentTurn < 3 {
+                if Task.isCancelled { break }
                 currentTurn += 1
                 
                 let responseMessage = try await deepSeek.sendChatCompletion(
@@ -172,10 +202,12 @@ public final class AgentOrchestrator: ObservableObject {
                     tools: availableTools
                 )
                 
+                if Task.isCancelled { break }
                 apiMessages.append(responseMessage)
                 
                 if let toolCalls = responseMessage.tool_calls, !toolCalls.isEmpty {
                     for toolCall in toolCalls {
+                        if Task.isCancelled { break }
                         let stepInfo = describeToolCall(name: toolCall.function.name)
                         withAnimation {
                             self.currentStep = AgentExecutionStep(icon: stepInfo.icon, text: stepInfo.label)
@@ -208,6 +240,7 @@ public final class AgentOrchestrator: ObservableObject {
                         ))
                     }
                 } else {
+                    if Task.isCancelled { break }
                     withAnimation {
                         self.currentStep = AgentExecutionStep(icon: "pencil.line", text: "Finalizing response...")
                     }
@@ -231,13 +264,15 @@ public final class AgentOrchestrator: ObservableObject {
                 }
             }
         } catch {
-            debugLogger.log(type: .error, title: "Processing Error", payload: error.localizedDescription)
-            let errorMsg = ChatMessageItem(
-                role: .assistant,
-                content: "⚠️ Error: \(error.localizedDescription)",
-                conversationId: conversationId
-            )
-            storage.addMessage(errorMsg)
+            if !Task.isCancelled {
+                debugLogger.log(type: .error, title: "Processing Error", payload: error.localizedDescription)
+                let errorMsg = ChatMessageItem(
+                    role: .assistant,
+                    content: "⚠️ Error: \(error.localizedDescription)",
+                    conversationId: conversationId
+                )
+                storage.addMessage(errorMsg)
+            }
         }
         
         withAnimation {

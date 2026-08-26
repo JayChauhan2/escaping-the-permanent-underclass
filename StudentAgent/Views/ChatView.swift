@@ -38,7 +38,7 @@ public struct ChatView: View {
     
     public var body: some View {
         VStack(spacing: 0) {
-            // Grok Top Bar (Clean, no mode pill)
+            // Grok Top Bar
             HStack(spacing: 12) {
                 Button(action: onOpenSidebar) {
                     Image(systemName: "line.3.horizontal")
@@ -124,11 +124,14 @@ public struct ChatView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
             
-            // Grok Prompt Bar
+            // Grok Prompt Bar with Stop Generation
             GrokPromptBar(
                 text: $inputText,
                 isProcessing: orchestrator.isProcessing,
-                onSend: sendMessage
+                onSend: sendMessage,
+                onStop: {
+                    orchestrator.stopGeneration()
+                }
             )
         }
         .background(Color.grokCanvas.ignoresSafeArea())
@@ -236,11 +239,9 @@ public struct ChatView: View {
             conversation.updatedAt = Date()
         }
         
-        Task {
-            await orchestrator.processUserMessage(
-                text: text,
-                conversationId: conversation.id
-            )
-        }
+        orchestrator.processUserMessage(
+            text: text,
+            conversationId: conversation.id
+        )
     }
 }

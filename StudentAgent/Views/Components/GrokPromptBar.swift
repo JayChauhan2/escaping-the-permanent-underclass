@@ -4,6 +4,9 @@
 //
 
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 public enum GrokSendState {
     case disabled
@@ -13,21 +16,32 @@ public enum GrokSendState {
 
 public struct GrokSendButton: View {
     public let state: GrokSendState
-    public let action: () -> Void
+    public let onSend: () -> Void
+    public let onStop: () -> Void
     
-    public init(state: GrokSendState, action: @escaping () -> Void) {
+    public init(state: GrokSendState, onSend: @escaping () -> Void, onStop: @escaping () -> Void = {}) {
         self.state = state
-        self.action = action
+        self.onSend = onSend
+        self.onStop = onStop
     }
     
     public var body: some View {
-        Button(action: action) {
+        Button(action: {
+            #if canImport(UIKit)
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            #endif
+            if state == .streaming {
+                onStop()
+            } else if state == .enabled {
+                onSend()
+            }
+        }) {
             Group {
                 switch state {
                 case .streaming:
                     Image(systemName: "stop.fill")
                         .foregroundColor(Color.grokTextPrimary)
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.system(size: 12, weight: .bold))
                 case .enabled:
                     Image(systemName: "arrow.up")
                         .foregroundColor(Color.black)
@@ -49,7 +63,7 @@ public struct GrokSendButton: View {
         switch state {
         case .disabled:  return Color.grokSurface3
         case .enabled:   return Color.grokAccentWhite
-        case .streaming: return Color.grokSurface3
+        case .streaming: return Color.grokSurface2
         }
     }
 }
@@ -58,13 +72,20 @@ public struct GrokPromptBar: View {
     @Binding public var text: String
     public var isProcessing: Bool
     public var onSend: () -> Void
+    public var onStop: () -> Void
     
     @FocusState private var isFocused: Bool
     
-    public init(text: Binding<String>, isProcessing: Bool, onSend: @escaping () -> Void) {
+    public init(
+        text: Binding<String>,
+        isProcessing: Bool,
+        onSend: @escaping () -> Void,
+        onStop: @escaping () -> Void = {}
+    ) {
         self._text = text
         self.isProcessing = isProcessing
         self.onSend = onSend
+        self.onStop = onStop
     }
     
     private var sendState: GrokSendState {
@@ -83,11 +104,11 @@ public struct GrokPromptBar: View {
                 .focused($isFocused)
                 .padding(.vertical, 4)
             
-            GrokSendButton(state: sendState, action: {
-                if !isProcessing {
-                    onSend()
-                }
-            })
+            GrokSendButton(
+                state: sendState,
+                onSend: onSend,
+                onStop: onStop
+            )
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
