@@ -18,7 +18,6 @@ public struct ChatView: View {
     
     @State private var inputText: String = ""
     @State private var showingSettings: Bool = false
-    @State private var isTriageMode: Bool = false
     @FocusState private var isInputFocused: Bool
     
     public init(
@@ -39,7 +38,7 @@ public struct ChatView: View {
     
     public var body: some View {
         VStack(spacing: 0) {
-            // Grok Top Bar
+            // Grok Top Bar (Clean, no mode pill)
             HStack(spacing: 12) {
                 Button(action: onOpenSidebar) {
                     Image(systemName: "line.3.horizontal")
@@ -51,8 +50,22 @@ public struct ChatView: View {
                 
                 Spacer()
                 
-                // Grok Center Mode Capsule
-                modeTogglePill
+                // Centered Conversation Title & Provider Subtitle
+                VStack(spacing: 2) {
+                    Text(conversation.title)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(Color.grokTextPrimary)
+                        .lineLimit(1)
+                    
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(Color.grokSuccess)
+                            .frame(width: 5, height: 5)
+                        Text(orchestrator.currentProvider.rawValue.prefix(16))
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(Color.grokTextSecondary)
+                    }
+                }
                 
                 Spacer()
                 
@@ -65,7 +78,7 @@ public struct ChatView: View {
                 .buttonStyle(GrokPressableStyle())
             }
             .padding(.horizontal, 14)
-            .padding(.vertical, 6)
+            .padding(.vertical, 8)
             .background(Color.grokCanvas)
             .overlay(Divider().background(Color.grokDivider), alignment: .bottom)
             
@@ -124,53 +137,11 @@ public struct ChatView: View {
         }
     }
     
-    // Grok Mode Toggle Pill
-    private var modeTogglePill: some View {
-        HStack(spacing: 0) {
-            Button(action: {
-                withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
-                    isTriageMode = false
-                }
-            }) {
-                Text("Executive")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(!isTriageMode ? Color.black : Color.grokTextSecondary)
-                    .padding(.vertical, 5)
-                    .padding(.horizontal, 12)
-                    .background(!isTriageMode ? Color.grokAccentWhite : Color.clear)
-                    .clipShape(Capsule())
-            }
-            .buttonStyle(.plain)
-            
-            Button(action: {
-                withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
-                    isTriageMode = true
-                }
-            }) {
-                Text("Triage")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(isTriageMode ? Color.grokLinkBlue : Color.grokTextSecondary)
-                    .padding(.vertical, 5)
-                    .padding(.horizontal, 12)
-                    .background(isTriageMode ? Color.grokSurface1 : Color.clear)
-                    .clipShape(Capsule())
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(3)
-        .background(Color.grokSurface1)
-        .clipShape(Capsule())
-        .overlay(
-            Capsule().strokeBorder(Color.grokDivider, lineWidth: 1)
-        )
-    }
-    
     // Minimalist Grok-style empty canvas
     private var emptyStateView: some View {
         VStack(spacing: 16) {
             Spacer(minLength: 40)
             
-            // Grok Monogram / Logo
             ZStack {
                 Circle()
                     .fill(Color.grokSurface1)
@@ -187,7 +158,7 @@ public struct ChatView: View {
                     .font(.system(size: 20, weight: .bold))
                     .foregroundColor(Color.grokTextPrimary)
                 
-                Text("Connected to \(orchestrator.currentProvider.rawValue) • DeepSeek")
+                Text("\(orchestrator.currentProvider.rawValue) • DeepSeek")
                     .font(.system(size: 13))
                     .foregroundColor(Color.grokTextSecondary)
             }

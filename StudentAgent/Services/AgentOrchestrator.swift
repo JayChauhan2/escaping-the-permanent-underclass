@@ -39,7 +39,7 @@ public final class AgentOrchestrator: ObservableObject {
         return [
             DeepSeekToolDefinition(
                 name: "fetch_recent_emails",
-                description: "Fetches recent student emails from Outlook/Gmail inbox. Use ONLY when user asks to check emails, triage tasks, or find incoming messages.",
+                description: "Fetches recent student emails from Outlook/Gmail inbox.",
                 parameters: [
                     "type": AnyCodable("object"),
                     "properties": AnyCodable([
@@ -49,7 +49,7 @@ public final class AgentOrchestrator: ObservableObject {
                         ],
                         "max_count": [
                             "type": "integer",
-                            "description": "Maximum number of emails to retrieve (e.g. 10)"
+                            "description": "Maximum number of emails to retrieve (e.g. 2 or 5)"
                         ]
                     ]),
                     "required": AnyCodable([])
@@ -127,19 +127,13 @@ public final class AgentOrchestrator: ObservableObject {
     private var systemPrompt: String {
         let nowString = ISO8601DateFormatter().string(from: Date())
         return """
-        You are an intelligent executive student assistant for an undergraduate student on mobile iPhone.
-        Current Local Date & Time: \(nowString).
+        You are an intelligent executive student assistant for an undergraduate student on mobile iOS.
+        Current Time: \(nowString).
         
-        CRITICAL RULES:
-        1. CONCISENESS (MOBILE FIRST):
-           - Keep responses ultra-brief, punchy, and structured in bullet points.
-           - No verbose disclaimers, no repeating what the user already knows.
-           - Every word must provide high signal.
-        2. TOOL DISCIPLINE:
-           - For casual greetings (e.g., "hi", "how are you", "what can you do"), respond casually in 1 short sentence. DO NOT call email or calendar tools.
-           - ONLY call `fetch_recent_emails` or `search_emails` when the user asks about emails, tasks, deadlines, advisor, classes, or student gov.
-        3. CALENDAR & REMINDERS:
-           - Never claim an event was added. State that you drafted it for their confirmation (the app UI provides the confirmation buttons).
+        RULES:
+        1. Keep responses ultra-concise, structured, and punchy in bullet points.
+        2. Only call email tools when the user asks about emails, tasks, schedule, advisor, classes, or student gov.
+        3. Never say a calendar event or reminder was added. State that you drafted it for their confirmation.
         """
     }
     
@@ -150,9 +144,8 @@ public final class AgentOrchestrator: ObservableObject {
         isProcessing = true
         currentStep = AgentExecutionStep(icon: "sparkles", text: "Thinking...")
         
-        debugLogger.log(type: .userPrompt, title: "User Input Received", payload: text)
+        debugLogger.log(type: .userPrompt, title: "User Input", payload: text)
         
-        // 1. Save user message to storage
         let userMsg = ChatMessageItem(role: .user, content: text, conversationId: conversationId)
         storage.addMessage(userMsg)
         
@@ -382,14 +375,16 @@ public final class SimulatedEmailServiceWrapper: EmailServiceProtocol {
     public func signOut() async throws {}
     
     public func fetchRecentEmails(hoursBack: Int, maxCount: Int) async throws -> [EmailItem] {
-        return SimulatedEmailService.shared.getSampleStudentEmails()
+        let all = SimulatedEmailService.shared.getSampleStudentEmails()
+        return Array(all.prefix(maxCount))
     }
     
     public func searchEmails(query: String, maxCount: Int) async throws -> [EmailItem] {
-        return SimulatedEmailService.shared.getSampleStudentEmails().filter {
+        let filtered = SimulatedEmailService.shared.getSampleStudentEmails().filter {
             $0.subject.localizedCaseInsensitiveContains(query) ||
             $0.bodySnippet.localizedCaseInsensitiveContains(query)
         }
+        return Array(filtered.prefix(maxCount))
     }
     
     public func getEmailDetails(id: String) async throws -> EmailItem? {
