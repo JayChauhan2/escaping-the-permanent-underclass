@@ -35,7 +35,7 @@ public struct ContentView: View {
     public var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
-                // 1. Main Chat Surface
+                // 1. Main Chat Surface (Hamburger button receives all taps unobstructed)
                 if let convo = selectedConversation ?? storage.conversations.first {
                     ChatView(
                         conversation: convo,
@@ -50,28 +50,33 @@ public struct ContentView: View {
                     Color.grokCanvas.ignoresSafeArea()
                 }
                 
-                // 2. Invisible Left Edge Swipe Trigger Area (Ultra-responsive)
+                // 2. Left Edge Swipe Zone (Starts below top bar so hamburger button is never blocked)
                 if !showingSidebar {
-                    Color.clear
-                        .frame(width: 35)
-                        .contentShape(Rectangle())
-                        .gesture(
-                            DragGesture(minimumDistance: 5, coordinateSpace: .global)
-                                .onChanged { value in
-                                    if value.translation.width > 0 {
-                                        isDragging = true
-                                        dragOffset = min(sidebarWidth, value.translation.width)
+                    VStack {
+                        Color.clear
+                            .frame(height: geometry.safeAreaInsets.top + 50)
+                        
+                        Color.clear
+                            .frame(width: 32)
+                            .contentShape(Rectangle())
+                            .gesture(
+                                DragGesture(minimumDistance: 6, coordinateSpace: .global)
+                                    .onChanged { value in
+                                        if value.translation.width > 0 {
+                                            isDragging = true
+                                            dragOffset = min(sidebarWidth, value.translation.width)
+                                        }
                                     }
-                                }
-                                .onEnded { value in
-                                    isDragging = false
-                                    if value.translation.width > 45 || value.predictedEndTranslation.width > 120 {
-                                        openSidebar()
-                                    } else {
-                                        closeSidebar()
+                                    .onEnded { value in
+                                        isDragging = false
+                                        if value.translation.width > 40 || value.predictedEndTranslation.width > 100 {
+                                            openSidebar()
+                                        } else {
+                                            closeSidebar()
+                                        }
                                     }
-                                }
-                        )
+                            )
+                    }
                 }
                 
                 // 3. Dark Backdrop Scrim
@@ -92,7 +97,7 @@ public struct ContentView: View {
                                 }
                                 .onEnded { value in
                                     isDragging = false
-                                    if value.translation.width < -40 || value.predictedEndTranslation.width < -120 {
+                                    if value.translation.width < -40 || value.predictedEndTranslation.width < -100 {
                                         closeSidebar()
                                     } else {
                                         openSidebar()
@@ -117,7 +122,7 @@ public struct ContentView: View {
                             }
                             .onEnded { value in
                                 isDragging = false
-                                if value.translation.width < -50 || value.predictedEndTranslation.width < -120 {
+                                if value.translation.width < -50 || value.predictedEndTranslation.width < -100 {
                                     closeSidebar()
                                 } else {
                                     openSidebar()
