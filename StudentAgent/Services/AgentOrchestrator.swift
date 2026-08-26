@@ -77,7 +77,7 @@ public final class AgentOrchestrator: ObservableObject {
             ),
             DeepSeekToolDefinition(
                 name: "propose_calendar_event",
-                description: "Drafts a proposed Apple Calendar event in user local time for the user to review and confirm.",
+                description: "Drafts a proposed Apple Calendar event card in user local time with a 1-tap confirmation button.",
                 parameters: [
                     "type": AnyCodable("object"),
                     "properties": AnyCodable([
@@ -106,38 +106,8 @@ public final class AgentOrchestrator: ObservableObject {
                 ]
             ),
             DeepSeekToolDefinition(
-                name: "commit_calendar_event",
-                description: "Directly adds a confirmed event in user local time to Apple Calendar. Use when user confirms via chat ('Yes, add it', 'Go ahead', 'Add to calendar').",
-                parameters: [
-                    "type": AnyCodable("object"),
-                    "properties": AnyCodable([
-                        "title": [
-                            "type": "string",
-                            "description": "Event title"
-                        ],
-                        "start_date_iso": [
-                            "type": "string",
-                            "description": "Local date-time string (e.g. '2026-09-04T17:30:00')"
-                        ],
-                        "end_date_iso": [
-                            "type": "string",
-                            "description": "Local end date-time string"
-                        ],
-                        "notes": [
-                            "type": "string",
-                            "description": "Notes or booking link"
-                        ],
-                        "is_all_day": [
-                            "type": "boolean",
-                            "description": "Whether all day"
-                        ]
-                    ]),
-                    "required": AnyCodable(["title", "start_date_iso"])
-                ]
-            ),
-            DeepSeekToolDefinition(
                 name: "propose_reminder",
-                description: "Drafts a proposed Apple Reminder task for the user to confirm.",
+                description: "Drafts a proposed Apple Reminder task card in user local time with a 1-tap confirmation button.",
                 parameters: [
                     "type": AnyCodable("object"),
                     "properties": AnyCodable([
@@ -152,28 +122,6 @@ public final class AgentOrchestrator: ObservableObject {
                         "notes": [
                             "type": "string",
                             "description": "Additional notes"
-                        ]
-                    ]),
-                    "required": AnyCodable(["title"])
-                ]
-            ),
-            DeepSeekToolDefinition(
-                name: "commit_reminder",
-                description: "Directly adds a confirmed reminder to Apple Reminders. Use when user confirms via chat.",
-                parameters: [
-                    "type": AnyCodable("object"),
-                    "properties": AnyCodable([
-                        "title": [
-                            "type": "string",
-                            "description": "Reminder task title"
-                        ],
-                        "due_date_iso": [
-                            "type": "string",
-                            "description": "Local due date-time string"
-                        ],
-                        "notes": [
-                            "type": "string",
-                            "description": "Notes"
                         ]
                     ]),
                     "required": AnyCodable(["title"])
@@ -198,9 +146,9 @@ public final class AgentOrchestrator: ObservableObject {
         
         # OPERATING RULES:
         1. Only call email tools when user asks about emails, tasks, schedule, advisor, classes, or student gov.
-        2. When creating start_date_iso or due_date_iso, ALWAYS specify exact local time (e.g. 5:30 PM on Sep 4 = '2026-09-04T17:30:00'). Do NOT convert to UTC.
-        3. Propose calendar/reminder draft cards first.
-        4. If user says 'add it', 'go ahead', 'confirm', or confirms in chat, use `commit_calendar_event` or `commit_reminder` immediately.
+        2. When finding a deadline or meeting, ALWAYS call `propose_calendar_event` or `propose_reminder` so a 1-tap confirmation card appears.
+        3. When creating start_date_iso or due_date_iso, ALWAYS specify exact local time (e.g. 5:30 PM on Sep 4 = '2026-09-04T17:30:00'). Do NOT convert to UTC.
+        4. State that event/reminder proposal cards are ready for 1-tap confirmation.
         """
     }
     
@@ -369,20 +317,15 @@ public final class AgentOrchestrator: ObservableObject {
         case "search_emails":
             return ("magnifyingglass", "Searching relevant emails...")
         case "propose_calendar_event":
-            return ("calendar.badge.plus", "Drafting calendar event...")
-        case "commit_calendar_event":
-            return ("calendar.badge.checkmark", "Writing to Apple Calendar...")
+            return ("calendar.badge.plus", "Drafting calendar event card...")
         case "propose_reminder":
-            return ("checklist", "Drafting reminder task...")
-        case "commit_reminder":
-            return ("checklist.checked", "Writing to Apple Reminders...")
+            return ("checklist", "Drafting reminder card...")
         default:
             return ("gearshape.2.fill", "Executing tool...")
         }
     }
     
     private func parseDateLocal(_ string: String) -> Date? {
-        // Strip trailing Z or +00:00 to interpret local hour representation directly in TimeZone.current
         let clean = string.replacingOccurrences(of: "Z", with: "")
         let formats = [
             "yyyy-MM-dd'T'HH:mm:ss",
@@ -444,6 +387,7 @@ public final class AgentOrchestrator: ObservableObject {
             let isAllDay = args["is_all_day"] as? Bool ?? false
             
             let action = CalendarAction(
+                id: UUID().uuidString,
                 type: .calendarEvent,
                 title: title,
                 notes: notes,
@@ -453,38 +397,7 @@ public final class AgentOrchestrator: ObservableObject {
                 status: .proposed
             )
             collectedActions.append(action)
-            return "Drafted calendar event '\(title)' for: \(startDate)."
-            
-        case "commit_calendar_event":
-            let title = args["title"] as? String ?? "Event"
-            let startStr = args["start_date_iso"] as? String ?? ""
-            let startDate = parseDateLocal(startStr) ?? Date().addingTimeInterval(86400)
-            let endStr = args["end_date_iso"] as? String
-            let endDate = endStr != nil ? parseDateLocal(endStr!) : nil
-            let notes = args["notes"] as? String
-            let isAllDay = args["is_all_day"] as? Bool ?? false
-            
-            let createdId = try await eventKit.commitCalendarEvent(
-                title: title,
-                startDate: startDate,
-                endDate: endDate,
-                isAllDay: isAllDay,
-                notes: notes
-            )
-            debugLogger.log(type: .eventKit, title: "Calendar Event Committed", payload: "Title: \(title), ID: \(createdId)")
-            
-            let action = CalendarAction(
-                type: .calendarEvent,
-                title: title,
-                notes: notes,
-                startDate: startDate,
-                endDate: endDate,
-                isAllDay: isAllDay,
-                status: .confirmed,
-                createdEventIdentifier: createdId
-            )
-            collectedActions.append(action)
-            return "SUCCESS: Event '\(title)' committed to Apple Calendar with ID: \(createdId)."
+            return "Drafted calendar event card '\(title)' for: \(startDate). User can tap to confirm."
             
         case "propose_reminder":
             let title = args["title"] as? String ?? "Reminder"
@@ -493,6 +406,7 @@ public final class AgentOrchestrator: ObservableObject {
             let notes = args["notes"] as? String
             
             let action = CalendarAction(
+                id: UUID().uuidString,
                 type: .appleReminder,
                 title: title,
                 notes: notes,
@@ -500,31 +414,7 @@ public final class AgentOrchestrator: ObservableObject {
                 status: .proposed
             )
             collectedActions.append(action)
-            return "Drafted reminder '\(title)'."
-            
-        case "commit_reminder":
-            let title = args["title"] as? String ?? "Reminder"
-            let dueStr = args["due_date_iso"] as? String
-            let dueDate = dueStr != nil ? parseDateLocal(dueStr!) : nil
-            let notes = args["notes"] as? String
-            
-            let createdId = try await eventKit.commitReminder(
-                title: title,
-                dueDate: dueDate,
-                notes: notes
-            )
-            debugLogger.log(type: .eventKit, title: "Apple Reminder Committed", payload: "Title: \(title), ID: \(createdId)")
-            
-            let action = CalendarAction(
-                type: .appleReminder,
-                title: title,
-                notes: notes,
-                startDate: dueDate ?? Date(),
-                status: .confirmed,
-                createdEventIdentifier: createdId
-            )
-            collectedActions.append(action)
-            return "SUCCESS: Reminder '\(title)' committed to Apple Reminders."
+            return "Drafted reminder card '\(title)'. User can tap to confirm."
             
         default:
             return "Tool \(name) executed."
