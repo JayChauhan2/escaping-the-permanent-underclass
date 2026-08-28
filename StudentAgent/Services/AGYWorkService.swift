@@ -23,26 +23,13 @@ public final class AGYWorkService: ObservableObject {
     
     private var activeTask: Task<Void, Never>? = nil
     
+    public static let defaultBridgeURL: String = "https://deviant-richmond-strange-real.trycloudflare.com"
+    
     public var bridgeBaseURL: String {
         var raw = UserDefaults.standard.string(forKey: "agy_bridge_url")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if raw.isEmpty {
-            let ollama = AppConfig.activeOllamaURL
-            if let url = URL(string: ollama), let host = url.host {
-                raw = "http://\(host):11435"
-            } else {
-                raw = "http://172.16.53.85:11435"
-            }
-        }
-        if !raw.hasPrefix("http://") && !raw.hasPrefix("https://") {
-            raw = "http://" + raw
-        }
-        if !raw.contains(".trycloudflare.com") && !raw.contains(".ngrok") {
-            if raw.hasPrefix("https://") {
-                raw = raw.replacingOccurrences(of: "https://", with: "http://")
-            }
-            if let url = URL(string: raw), url.port == nil {
-                raw = "\(raw):11435"
-            }
+        if raw.isEmpty || raw.contains("100.") || raw.contains("172.16") || raw.contains("10.203") || raw.contains("localhost") || raw.contains("127.0.0.1") {
+            raw = AGYWorkService.defaultBridgeURL
+            UserDefaults.standard.set(AGYWorkService.defaultBridgeURL, forKey: "agy_bridge_url")
         }
         return raw
     }

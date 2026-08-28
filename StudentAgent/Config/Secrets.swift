@@ -39,20 +39,10 @@ public struct AppConfig {
     public static var activeOllamaURL: String {
         get {
             var raw = UserDefaults.standard.string(forKey: "ollama_url")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            if raw.isEmpty {
+            // Force-migrate any old unreachable local/Tailscale IPs or blank entries
+            if raw.isEmpty || raw.contains("100.") || raw.contains("172.16") || raw.contains("10.203") || raw.contains("localhost") || raw.contains("127.0.0.1") {
                 raw = defaultOllamaURL
-            }
-            if !raw.hasPrefix("http://") && !raw.hasPrefix("https://") {
-                raw = "http://" + raw
-            }
-            // Auto-fix https -> http and missing port for raw IP addresses
-            if !raw.contains(".trycloudflare.com") && !raw.contains(".ngrok") {
-                if raw.hasPrefix("https://") {
-                    raw = raw.replacingOccurrences(of: "https://", with: "http://")
-                }
-                if let url = URL(string: raw), url.port == nil {
-                    raw = "\(raw):11434"
-                }
+                UserDefaults.standard.set(defaultOllamaURL, forKey: "ollama_url")
             }
             return raw
         }
