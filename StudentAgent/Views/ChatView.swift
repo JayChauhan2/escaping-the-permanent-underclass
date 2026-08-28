@@ -17,6 +17,9 @@ public struct ChatView: View {
     public var onNewChat: () -> Void
     
     @State private var inputText: String = ""
+    #if canImport(UIKit)
+    @State private var attachedImage: UIImage? = nil
+    #endif
     @State private var showingSettings: Bool = false
     @FocusState private var isInputFocused: Bool
     
@@ -124,7 +127,18 @@ public struct ChatView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
             
-            // Grok Prompt Bar with Stop Generation
+            // Grok Prompt Bar with Plus Button & Stop Generation
+            #if canImport(UIKit)
+            GrokPromptBar(
+                text: $inputText,
+                attachedImage: $attachedImage,
+                isProcessing: orchestrator.isProcessing,
+                onSend: sendMessage,
+                onStop: {
+                    orchestrator.stopGeneration()
+                }
+            )
+            #else
             GrokPromptBar(
                 text: $inputText,
                 isProcessing: orchestrator.isProcessing,
@@ -133,6 +147,7 @@ public struct ChatView: View {
                     orchestrator.stopGeneration()
                 }
             )
+            #endif
         }
         .background(Color.grokCanvas.ignoresSafeArea())
         .sheet(isPresented: $showingSettings) {
@@ -225,23 +240,39 @@ public struct ChatView: View {
     
     private func sendMessage() {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        #if canImport(UIKit)
+        let imageToSend = attachedImage
+        guard !text.isEmpty || imageToSend != nil else { return }
+        #else
         guard !text.isEmpty else { return }
+        #endif
         
         inputText = ""
         #if canImport(UIKit)
+        attachedImage = nil
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         #endif
         isInputFocused = false
         
+        let messageText = text.isEmpty ? "Refer to this attached image." : text
+        
         if conversation.title == "New Conversation" {
-            let words = text.components(separatedBy: " ").prefix(4).joined(separator: " ")
+            let words = messageText.components(separatedBy: " ").prefix(4).joined(separator: " ")
             conversation.title = words.isEmpty ? "Chat" : words
             conversation.updatedAt = Date()
         }
         
+        #if canImport(UIKit)
         orchestrator.processUserMessage(
-            text: text,
+            text: messageText,
+            conversationId: conversation.id,
+            attachedImage: imageToSend
+        )
+        #else
+        orchestrator.processUserMessage(
+            text: messageText,
             conversationId: conversation.id
         )
+        #endif
     }
 }

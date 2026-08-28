@@ -98,21 +98,8 @@ public struct SettingsView: View {
                 
                 // MARK: - 3. Apple Calendar & EventKit
                 Section(header: Text("APPLE CALENDAR & REMINDERS").foregroundColor(Color.grokTextSecondary)) {
-                    HStack {
-                        Text("Apple Calendar:")
-                        Spacer()
-                        Text(calendarAuthorized ? "Authorized ✓" : "Not Granted")
-                            .foregroundColor(calendarAuthorized ? Color.grokSuccess : Color.grokWarning)
-                            .fontWeight(calendarAuthorized ? .semibold : .regular)
-                    }
-                    
-                    HStack {
-                        Text("Apple Reminders:")
-                        Spacer()
-                        Text(remindersAuthorized ? "Authorized ✓" : "Not Granted")
-                            .foregroundColor(remindersAuthorized ? Color.grokSuccess : Color.grokWarning)
-                            .fontWeight(remindersAuthorized ? .semibold : .regular)
-                    }
+                    permissionRow(title: "Apple Calendar:", authorized: calendarAuthorized)
+                    permissionRow(title: "Apple Reminders:", authorized: remindersAuthorized)
                     
                     Button("Request / Re-check Permissions") {
                         Task {
@@ -203,5 +190,21 @@ public struct SettingsView: View {
             }
         }
         .preferredColorScheme(.dark)
+    }
+    
+    @ViewBuilder
+    private func permissionRow(title: String, authorized: Bool) -> some View {
+        HStack {
+            Text(title)
+            Spacer()
+            if authorized {
+                Text("Authorized ✓")
+                    .foregroundColor(Color.grokSuccess)
+                    .fontWeight(.semibold)
+            } else {
+                Text("Not Granted")
+                    .foregroundColor(Color.grokWarning)
+            }
+        }
     }
 }

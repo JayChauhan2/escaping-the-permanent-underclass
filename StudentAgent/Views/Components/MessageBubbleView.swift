@@ -15,6 +15,7 @@ public struct MessageBubbleView: View {
     @State private var didCopy = false
     @State private var cursorVisible = true
     @State private var isAddingAll = false
+    @State private var showingImagePreview = false
     
     public init(message: ChatMessageItem, orchestrator: AgentOrchestrator) {
         self.message = message
@@ -30,29 +31,75 @@ public struct MessageBubbleView: View {
     public var body: some View {
         VStack(alignment: isUser ? .trailing : .leading, spacing: 6) {
             if isUser {
-                // User Bubble: Selectable text + Long-press context menu to copy
+                // User Bubble: Selectable text + attached image + context menu
                 HStack {
                     Spacer(minLength: 48)
-                    Text(message.content)
-                        .font(.system(size: 15))
-                        .foregroundColor(Color.grokTextPrimary)
-                        .textSelection(.enabled)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(Color.grokSurface2)
-                        .clipShape(RoundedRectangle(cornerRadius: 18))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 18)
-                                .strokeBorder(Color.grokDivider, lineWidth: 0.5)
-                        )
-                        .contextMenu {
-                            Button {
-                                copyText(message.content)
-                            } label: {
-                                Label("Copy Message", systemImage: "doc.on.doc")
+                    VStack(alignment: .trailing, spacing: 8) {
+                        #if canImport(UIKit)
+                        if let img = message.attachmentImage {
+                            Image(uiImage: img)
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(maxWidth: 220, maxHeight: 180)
+                                .clipShape(RoundedRectangle(cornerRadius: 14))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .strokeBorder(Color.grokDivider, lineWidth: 0.5)
+                                )
+                                .onTapGesture {
+                                    showingImagePreview = true
+                                }
+                        }
+                        #endif
+                        
+                        if !message.content.isEmpty {
+                            Text(message.content)
+                                .font(.system(size: 15))
+                                .foregroundColor(Color.grokTextPrimary)
+                                .textSelection(.enabled)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color.grokSurface2)
+                    .clipShape(RoundedRectangle(cornerRadius: 18))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18)
+                            .strokeBorder(Color.grokDivider, lineWidth: 0.5)
+                    )
+                    .contextMenu {
+                        Button {
+                            copyText(message.content)
+                        } label: {
+                            Label("Copy Message", systemImage: "doc.on.doc")
+                        }
+                    }
+                }
+                #if canImport(UIKit)
+                .sheet(isPresented: $showingImagePreview) {
+                    if let img = message.attachmentImage {
+                        NavigationStack {
+                            ZStack {
+                                Color.black.ignoresSafeArea()
+                                Image(uiImage: img)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .padding()
+                            }
+                            .navigationTitle("Attached Reference")
+                            .navigationBarTitleDisplayMode(.inline)
+                            .toolbar {
+                                ToolbarItem(placement: .cancellationAction) {
+                                    Button("Done") {
+                                        showingImagePreview = false
+                                    }
+                                    .foregroundColor(Color.grokAccentWhite)
+                                }
                             }
                         }
+                    }
                 }
+                #endif
             } else {
                 // Assistant Transcript: Full width, selectable typography with live streaming cursor
                 VStack(alignment: .leading, spacing: 10) {

@@ -52,6 +52,12 @@
 	<key>NSRemindersFullAccessUsageDescription</key>
 	<string>StudentAgent needs access to Apple Reminders to organize your urgent student deadlines.</string>
 	
+	<!-- Camera & Photo Library Permissions -->
+	<key>NSCameraUsageDescription</key>
+	<string>StudentAgent uses your camera to capture syllabi, assignment sheets, and study schedules for AI text extraction.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>StudentAgent accesses your photos so you can attach images of documents and notes for AI analysis.</string>
+	
 	<!-- Document & Chat File Persistence in Files App -->
 	<key>UIFileSharingEnabled</key>
 	<true/>

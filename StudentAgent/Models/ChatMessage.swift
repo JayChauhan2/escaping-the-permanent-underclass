@@ -5,6 +5,9 @@
 
 import Foundation
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 public enum MessageRole: String, Codable {
     case user = "user"
@@ -20,6 +23,9 @@ public final class ChatMessageItem: Identifiable, Codable, ObservableObject {
     public var timestamp: Date
     public var conversationId: String
     
+    // Image attachment filename
+    @Published public var imageAttachmentFilename: String?
+    
     // Action and email payloads
     @Published public var rawToolCallsJSON: String?
     @Published public var rawProposedActionsJSON: String?
@@ -29,7 +35,7 @@ public final class ChatMessageItem: Identifiable, Codable, ObservableObject {
     @Published public var isStreaming: Bool = false
     
     enum CodingKeys: String, CodingKey {
-        case id, roleRaw, content, timestamp, conversationId, rawToolCallsJSON, rawProposedActionsJSON, rawEmailDigestsJSON
+        case id, roleRaw, content, timestamp, conversationId, imageAttachmentFilename, rawToolCallsJSON, rawProposedActionsJSON, rawEmailDigestsJSON
     }
     
     public var role: MessageRole {
@@ -43,6 +49,7 @@ public final class ChatMessageItem: Identifiable, Codable, ObservableObject {
         content: String,
         timestamp: Date = Date(),
         conversationId: String,
+        imageAttachmentFilename: String? = nil,
         toolCallsJSON: String? = nil,
         proposedActionsJSON: String? = nil,
         emailDigestsJSON: String? = nil,
@@ -53,6 +60,7 @@ public final class ChatMessageItem: Identifiable, Codable, ObservableObject {
         self.content = content
         self.timestamp = timestamp
         self.conversationId = conversationId
+        self.imageAttachmentFilename = imageAttachmentFilename
         self.rawToolCallsJSON = toolCallsJSON
         self.rawProposedActionsJSON = proposedActionsJSON
         self.rawEmailDigestsJSON = emailDigestsJSON
@@ -66,6 +74,7 @@ public final class ChatMessageItem: Identifiable, Codable, ObservableObject {
         self.content = try container.decode(String.self, forKey: .content)
         self.timestamp = try container.decode(Date.self, forKey: .timestamp)
         self.conversationId = try container.decode(String.self, forKey: .conversationId)
+        self.imageAttachmentFilename = try container.decodeIfPresent(String.self, forKey: .imageAttachmentFilename)
         self.rawToolCallsJSON = try container.decodeIfPresent(String.self, forKey: .rawToolCallsJSON)
         self.rawProposedActionsJSON = try container.decodeIfPresent(String.self, forKey: .rawProposedActionsJSON)
         self.rawEmailDigestsJSON = try container.decodeIfPresent(String.self, forKey: .rawEmailDigestsJSON)
@@ -79,10 +88,38 @@ public final class ChatMessageItem: Identifiable, Codable, ObservableObject {
         try container.encode(content, forKey: .content)
         try container.encode(timestamp, forKey: .timestamp)
         try container.encode(conversationId, forKey: .conversationId)
+        try container.encodeIfPresent(imageAttachmentFilename, forKey: .imageAttachmentFilename)
         try container.encodeIfPresent(rawToolCallsJSON, forKey: .rawToolCallsJSON)
         try container.encodeIfPresent(rawProposedActionsJSON, forKey: .rawProposedActionsJSON)
         try container.encodeIfPresent(rawEmailDigestsJSON, forKey: .rawEmailDigestsJSON)
     }
+    
+    #if canImport(UIKit)
+    public var attachmentImage: UIImage? {
+        guard let filename = imageAttachmentFilename else { return nil }
+        let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+        let fileURL = paths[0].appendingPathComponent("StudentAgent_Attachments", isDirectory: true).appendingPathComponent(filename)
+        return UIImage(contentsOfFile: fileURL.path)
+    }
+    
+    public static func saveAttachmentImage(_ image: UIImage) -> String? {
+        guard let data = image.jpegData(compressionQuality: 0.82) else { return nil }
+        let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+        let dir = paths[0].appendingPathComponent("StudentAgent_Attachments", isDirectory: true)
+        if !FileManager.default.fileExists(atPath: dir.path) {
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        }
+        let filename = "\(UUID().uuidString).jpg"
+        let fileURL = dir.appendingPathComponent(filename)
+        do {
+            try data.write(to: fileURL, options: .atomic)
+            return filename
+        } catch {
+            print("[ChatMessageItem] Failed to save attachment image: \(error)")
+            return nil
+        }
+    }
+    #endif
     
     // Decode/encode proposed calendar actions
     public var proposedActions: [CalendarAction] {

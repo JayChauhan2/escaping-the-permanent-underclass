@@ -31,6 +31,8 @@
 		DD38E3DFFB40498FA16547EE /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE459BBF5DFD41E982C2E4BC /* ContentView.swift */; };
 		6A2E538E178B450FB0A2D691 /* DebugLogsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7098309970AC4D2DABE59FB0 /* DebugLogsView.swift */; };
 		7D13F7C6291A401CAA76C414 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 911D5ACEAEF540F0AA232A21 /* SettingsView.swift */; };
+		8F1234567890ABCD12340002 /* VisionOCRService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1234567890ABCD12340001 /* VisionOCRService.swift */; };
+		8F1234567890ABCD12340004 /* CameraPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1234567890ABCD12340003 /* CameraPickerView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -59,6 +61,8 @@
 		FE459BBF5DFD41E982C2E4BC /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Views/ContentView.swift"; sourceTree = "<group>"; };
 		7098309970AC4D2DABE59FB0 /* DebugLogsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Views/DebugLogsView.swift"; sourceTree = "<group>"; };
 		911D5ACEAEF540F0AA232A21 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Views/SettingsView.swift"; sourceTree = "<group>"; };
+		8F1234567890ABCD12340001 /* VisionOCRService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Services/VisionOCRService.swift"; sourceTree = "<group>"; };
+		8F1234567890ABCD12340003 /* CameraPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Views/Components/CameraPickerView.swift"; sourceTree = "<group>"; };
 		42B16AC3305C4E749A18B8C5 /* StudentAgent.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StudentAgent.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -110,6 +114,8 @@
 				FE459BBF5DFD41E982C2E4BC /* ContentView.swift */,
 				7098309970AC4D2DABE59FB0 /* DebugLogsView.swift */,
 				911D5ACEAEF540F0AA232A21 /* SettingsView.swift */,
+				8F1234567890ABCD12340001 /* VisionOCRService.swift */,
+				8F1234567890ABCD12340003 /* CameraPickerView.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -205,6 +211,8 @@
 				DD38E3DFFB40498FA16547EE /* ContentView.swift in Sources */,
 				6A2E538E178B450FB0A2D691 /* DebugLogsView.swift in Sources */,
 				7D13F7C6291A401CAA76C414 /* SettingsView.swift in Sources */,
+				8F1234567890ABCD12340002 /* VisionOCRService.swift in Sources */,
+				8F1234567890ABCD12340004 /* CameraPickerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

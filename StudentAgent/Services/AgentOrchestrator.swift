@@ -5,6 +5,9 @@
 
 import Foundation
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 public struct AgentExecutionStep: Identifiable, Equatable {
     public let id = UUID()
@@ -23,6 +26,7 @@ public final class AgentOrchestrator: ObservableObject {
     private let eventKit = EventKitService.shared
     private let storage = ChatStorage.shared
     private let debugLogger = DebugLogger.shared
+    private let ocrService = VisionOCRService.shared
     
     private var activeProcessingTask: Task<Void, Never>?
     
@@ -202,7 +206,7 @@ public final class AgentOrchestrator: ObservableObject {
         ]
     }
     
-    // Caveman Mode System Instructions with Local Timezone & Multi-Event Rules
+    // Caveman Mode System Instructions with Local Timezone, Multi-Event & Vision Reference Rules
     private var systemPrompt: String {
         let tz = TimeZone.current
         let nowString = DateFormatter.localizedString(from: Date(), dateStyle: .full, timeStyle: .short)
@@ -219,11 +223,25 @@ public final class AgentOrchestrator: ObservableObject {
         # OPERATING RULES:
         1. Only call email tools when user asks about emails, tasks, schedule, advisor, classes, or student gov.
         2. MULTI-EVENT SUPPORT: When user asks to add/schedule multiple events or deadlines (e.g. 'add these 2 things', 'schedule all 3 sessions'), ALWAYS propose cards for ALL requested events using `propose_calendar_events` or `propose_reminders`. Never restrict to only one event.
-        3. When creating start_date_iso or due_date_iso, ALWAYS specify exact local time (e.g. 5:30 PM on Sep 4 = '2026-09-04T17:30:00'). Do NOT convert to UTC.
-        4. State that event/reminder proposal cards are ready for 1-tap confirmation.
+        3. IMAGE REFERENCES: If user attaches an image, analyze the extracted text/details to answer questions, verify schedule dates, or propose calendar events accurately.
+        4. When creating start_date_iso or due_date_iso, ALWAYS specify exact local time (e.g. 5:30 PM on Sep 4 = '2026-09-04T17:30:00'). Do NOT convert to UTC.
+        5. State that event/reminder proposal cards are ready for 1-tap confirmation.
         """
     }
     
+    #if canImport(UIKit)
+    public func processUserMessage(
+        text: String,
+        conversationId: String,
+        attachedImage: UIImage? = nil
+    ) {
+        activeProcessingTask?.cancel()
+        
+        activeProcessingTask = Task {
+            await executeAgentTurn(text: text, conversationId: conversationId, attachedImage: attachedImage)
+        }
+    }
+    #else
     public func processUserMessage(
         text: String,
         conversationId: String
@@ -234,6 +252,7 @@ public final class AgentOrchestrator: ObservableObject {
             await executeAgentTurn(text: text, conversationId: conversationId)
         }
     }
+    #endif
     
     public func stopGeneration() {
         activeProcessingTask?.cancel()
@@ -245,6 +264,29 @@ public final class AgentOrchestrator: ObservableObject {
         debugLogger.log(type: .general, title: "Generation Stopped", payload: "User tapped stop button.")
     }
     
+    #if canImport(UIKit)
+    private func executeAgentTurn(
+        text: String,
+        conversationId: String,
+        attachedImage: UIImage? = nil
+    ) async {
+        isProcessing = true
+        currentStep = AgentExecutionStep(icon: "sparkles", text: "Thinking...")
+        
+        debugLogger.log(type: .userPrompt, title: "User Input", payload: text)
+        
+        var savedFilename: String? = nil
+        var ocrText: String = ""
+        if let img = attachedImage {
+            currentStep = AgentExecutionStep(icon: "doc.text.viewfinder", text: "Analyzing attached image...")
+            savedFilename = ChatMessageItem.saveAttachmentImage(img)
+            ocrText = await ocrService.recognizeText(from: img)
+            debugLogger.log(type: .general, title: "Attached Image OCR Result", payload: ocrText)
+        }
+        
+        await runTurnPipeline(text: text, conversationId: conversationId, savedFilename: savedFilename, ocrText: ocrText)
+    }
+    #else
     private func executeAgentTurn(
         text: String,
         conversationId: String
@@ -254,7 +296,22 @@ public final class AgentOrchestrator: ObservableObject {
         
         debugLogger.log(type: .userPrompt, title: "User Input", payload: text)
         
-        let userMsg = ChatMessageItem(role: .user, content: text, conversationId: conversationId)
+        await runTurnPipeline(text: text, conversationId: conversationId, savedFilename: nil, ocrText: "")
+    }
+    #endif
+    
+    private func runTurnPipeline(
+        text: String,
+        conversationId: String,
+        savedFilename: String?,
+        ocrText: String
+    ) async {
+        let userMsg = ChatMessageItem(
+            role: .user,
+            content: text,
+            conversationId: conversationId,
+            imageAttachmentFilename: savedFilename
+        )
         storage.addMessage(userMsg)
         
         let history = storage.getMessages(for: conversationId)
@@ -263,9 +320,12 @@ public final class AgentOrchestrator: ObservableObject {
             DeepSeekMessage(role: "system", content: systemPrompt)
         ]
         
-        // Full conversation memory
         for msg in history {
-            apiMessages.append(DeepSeekMessage(role: msg.roleRaw, content: msg.content))
+            var msgContent = msg.content
+            if msg.id == userMsg.id && !ocrText.isEmpty {
+                msgContent += "\n\n[Attached Reference Image Content Extracted via OCR]:\n\(ocrText)"
+            }
+            apiMessages.append(DeepSeekMessage(role: msg.roleRaw, content: msgContent))
         }
         
         do {
