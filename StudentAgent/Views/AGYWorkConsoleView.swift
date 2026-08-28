@@ -405,7 +405,7 @@ public struct AGYMessageCardView: View {
 
 public struct AGYStepRowView: View {
     public let step: AGYStep
-    @State private var isExpanded: Bool = false
+    @State private var isExpanded: Bool = true
     
     public var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -415,9 +415,15 @@ public struct AGYStepRowView: View {
                 }
             }) {
                 HStack(spacing: 6) {
-                    Image(systemName: step.state == .done ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath")
-                        .font(.system(size: 12))
-                        .foregroundColor(step.state == .done ? Color.grokSuccess : Color.grokLinkBlue)
+                    if step.state == .done {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(Color.grokSuccess)
+                    } else {
+                        ProgressView()
+                            .scaleEffect(0.6)
+                            .tint(Color.grokLinkBlue)
+                    }
                     
                     Text(step.title)
                         .font(.system(size: 12, weight: .semibold, design: .monospaced))
@@ -442,15 +448,25 @@ public struct AGYStepRowView: View {
             }
             .buttonStyle(.plain)
             
-            if isExpanded && !step.content.isEmpty {
-                Text(step.content)
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundColor(Color.grokTextSecondary)
-                    .padding(8)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.black.opacity(0.5))
-                    .cornerRadius(6)
-                    .textSelection(.enabled)
+            if isExpanded && (!step.content.isEmpty || step.stdout != nil) {
+                VStack(alignment: .leading, spacing: 4) {
+                    if let args = step.toolArgs, !args.isEmpty {
+                        Text(args)
+                            .font(.system(size: 11, weight: .medium, design: .monospaced))
+                            .foregroundColor(Color.grokLinkBlue)
+                            .lineLimit(4)
+                    }
+                    if let out = step.stdout ?? (step.content.isEmpty ? nil : step.content), !out.isEmpty {
+                        Text(out)
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundColor(Color.grokTextSecondary)
+                    }
+                }
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.black.opacity(0.6))
+                .cornerRadius(6)
+                .textSelection(.enabled)
             }
         }
     }

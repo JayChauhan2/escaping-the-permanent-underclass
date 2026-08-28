@@ -42,8 +42,9 @@ public enum AGYStepState: String, Codable {
     case error = "ERROR"
 }
 
-public struct AGYStep: Identifiable, Equatable {
+public struct AGYStep: Identifiable, Equatable, Codable {
     public let id: String
+    public var stepIndex: Int?
     public var type: AGYStepType
     public var state: AGYStepState
     public var title: String
@@ -56,6 +57,7 @@ public struct AGYStep: Identifiable, Equatable {
     
     public init(
         id: String = UUID().uuidString,
+        stepIndex: Int? = nil,
         type: AGYStepType,
         state: AGYStepState = .active,
         title: String,
@@ -67,6 +69,7 @@ public struct AGYStep: Identifiable, Equatable {
         durationSeconds: Double? = nil
     ) {
         self.id = id
+        self.stepIndex = stepIndex
         self.type = type
         self.state = state
         self.title = title
@@ -79,7 +82,7 @@ public struct AGYStep: Identifiable, Equatable {
     }
 }
 
-public struct AGYMessage: Identifiable, Equatable {
+public struct AGYMessage: Identifiable, Equatable, Codable {
     public let id: String
     public var prompt: String
     public var conversationId: String?
@@ -107,5 +110,30 @@ public struct AGYMessage: Identifiable, Equatable {
         self.isRunning = isRunning
         self.timestamp = timestamp
         self.usageTokens = usageTokens
+    }
+}
+
+public struct AGYSessionItem: Identifiable, Equatable, Codable {
+    public let id: String
+    public var title: String
+    public var createdAt: Date
+    public var updatedAt: Date
+    public var messages: [AGYMessage]
+    public var conversationId: String?
+    
+    public init(
+        id: String = UUID().uuidString,
+        title: String = "New AGY Session",
+        createdAt: Date = Date(),
+        updatedAt: Date = Date(),
+        messages: [AGYMessage] = [],
+        conversationId: String? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.messages = messages
+        self.conversationId = conversationId
     }
 }

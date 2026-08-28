@@ -20,6 +20,7 @@ public struct ContentView: View {
     
     @Namespace private var sidebarTabNamespace
     @AppStorage("app_mode") private var selectedAppMode: AppMode = .campus
+    @ObservedObject private var agyService = AGYWorkService.shared
     @State private var selectedConversation: ConversationItem?
     @State private var selectedSidebarTab: SidebarTab = .chats
     @State private var showingSidebar: Bool = false
@@ -39,6 +40,13 @@ public struct ContentView: View {
         return storage.conversations.filter {
             $0.title.localizedCaseInsensitiveContains(searchQuery)
         }
+    }
+    
+    private var filteredAGYSessions: [AGYSessionItem] {
+        if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return agyService.sessions
+        }
+        return agyService.sessions.filter { $0.title.localizedCaseInsensitiveContains(searchQuery) }
     }
     
     public var body: some View {
@@ -276,7 +284,7 @@ public struct ContentView: View {
             } else {
                 // Header: Title & Top New Chat
                 HStack {
-                    Text("Conversations")
+                    Text(selectedAppMode == .work ? "AGY Work Sessions" : "Conversations")
                         .font(.system(size: 18, weight: .bold))
                         .foregroundColor(Color.grokTextPrimary)
                     
@@ -284,7 +292,11 @@ public struct ContentView: View {
                     
                     Button(action: {
                         closeSidebar()
-                        createNewChat()
+                        if selectedAppMode == .work {
+                            agyService.createNewSession()
+                        } else {
+                            createNewChat()
+                        }
                     }) {
                         Image(systemName: "square.and.pencil")
                             .font(.system(size: 15, weight: .semibold))
@@ -304,7 +316,7 @@ public struct ContentView: View {
                         .font(.system(size: 14))
                         .foregroundColor(Color.grokTextSecondary)
                     
-                    TextField("Search chats...", text: $searchQuery)
+                    TextField(selectedAppMode == .work ? "Search AGY tasks..." : "Search chats...", text: $searchQuery)
                         .font(.system(size: 14))
                         .foregroundColor(Color.grokTextPrimary)
                         .tint(Color.grokLinkBlue)
@@ -323,30 +335,74 @@ public struct ContentView: View {
                 // Conversation List
                 ScrollView {
                     LazyVStack(spacing: 4) {
-                        ForEach(filteredConversations) { convo in
-                            Button(action: {
-                                selectedConversation = convo
-                                closeSidebar()
-                            }) {
-                                HStack {
-                                    Text(convo.title)
-                                        .font(.system(size: 14, weight: selectedConversation?.id == convo.id ? .bold : .regular))
-                                        .foregroundColor(selectedConversation?.id == convo.id ? Color.grokTextPrimary : Color.grokTextSecondary)
-                                        .lineLimit(1)
-                                    
-                                    Spacer()
-                                }
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 11)
-                                .background(selectedConversation?.id == convo.id ? Color.grokSurface2 : Color.clear)
-                                .cornerRadius(10)
-                            }
-                            .buttonStyle(GrokPressableStyle())
-                            .contextMenu {
-                                Button(role: .destructive, action: {
-                                    deleteChat(convo)
+                        if selectedAppMode == .work {
+                            ForEach(filteredAGYSessions) { session in
+                                Button(action: {
+                                    agyService.selectSession(id: session.id)
+                                    closeSidebar()
                                 }) {
-                                    Label("Delete Conversation", systemImage: "trash")
+                                    HStack {
+                                        Image(systemName: "terminal.fill")
+                                            .font(.system(size: 11))
+                                            .foregroundColor(agyService.activeSessionId == session.id ? Color.grokLinkBlue : Color.grokTextSecondary)
+                                        
+                                        Text(session.title)
+                                            .font(.system(size: 14, weight: agyService.activeSessionId == session.id ? .bold : .regular))
+                                            .foregroundColor(agyService.activeSessionId == session.id ? Color.grokTextPrimary : Color.grokTextSecondary)
+                                            .lineLimit(1)
+                                        
+                                        Spacer()
+                                        
+                                        if !session.messages.isEmpty {
+                                            Text("\(session.messages.count)")
+                                                .font(.system(size: 10, weight: .bold))
+                                                .padding(.horizontal, 5)
+                                                .padding(.vertical, 2)
+                                                .background(Color.grokSurface3)
+                                                .foregroundColor(Color.grokTextSecondary)
+                                                .cornerRadius(4)
+                                        }
+                                    }
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 11)
+                                    .background(agyService.activeSessionId == session.id ? Color.grokSurface2 : Color.clear)
+                                    .cornerRadius(10)
+                                }
+                                .buttonStyle(GrokPressableStyle())
+                                .contextMenu {
+                                    Button(role: .destructive, action: {
+                                        agyService.deleteSession(id: session.id)
+                                    }) {
+                                        Label("Delete Session", systemImage: "trash")
+                                    }
+                                }
+                            }
+                        } else {
+                            ForEach(filteredConversations) { convo in
+                                Button(action: {
+                                    selectedConversation = convo
+                                    closeSidebar()
+                                }) {
+                                    HStack {
+                                        Text(convo.title)
+                                            .font(.system(size: 14, weight: selectedConversation?.id == convo.id ? .bold : .regular))
+                                            .foregroundColor(selectedConversation?.id == convo.id ? Color.grokTextPrimary : Color.grokTextSecondary)
+                                            .lineLimit(1)
+                                        
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 11)
+                                    .background(selectedConversation?.id == convo.id ? Color.grokSurface2 : Color.clear)
+                                    .cornerRadius(10)
+                                }
+                                .buttonStyle(GrokPressableStyle())
+                                .contextMenu {
+                                    Button(role: .destructive, action: {
+                                        deleteChat(convo)
+                                    }) {
+                                        Label("Delete Conversation", systemImage: "trash")
+                                    }
                                 }
                             }
                         }
@@ -384,7 +440,11 @@ public struct ContentView: View {
                 
                 Button(action: {
                     closeSidebar()
-                    createNewChat()
+                    if selectedAppMode == .work {
+                        agyService.createNewSession()
+                    } else {
+                        createNewChat()
+                    }
                 }) {
                     Image(systemName: "square.and.pencil")
                         .font(.system(size: 16, weight: .semibold))
