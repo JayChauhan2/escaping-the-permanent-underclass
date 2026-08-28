@@ -16,14 +16,6 @@ public struct AGYWorkConsoleView: View {
     @State private var customHostInput: String = ""
     @FocusState private var isInputFocused: Bool
     
-    private let quickCommands = [
-        ("git status", "git status"),
-        ("git diff", "git diff -U3"),
-        ("Build", "build the iOS project and check for errors"),
-        ("Tests", "run project tests"),
-        ("Files", "list the main source files in the project")
-    ]
-    
     public init() {}
     
     public var body: some View {
@@ -31,10 +23,7 @@ public struct AGYWorkConsoleView: View {
             // 1. Console Top Status Bar
             consoleStatusBar
             
-            // 2. Quick Command Chips
-            quickChipsBar
-            
-            // 3. Main Terminal Transcript
+            // 2. Main Terminal Transcript (Dismisses keyboard on tap or drag)
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 14) {
@@ -49,7 +38,24 @@ public struct AGYWorkConsoleView: View {
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        isInputFocused = false
+                        #if canImport(UIKit)
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                        #endif
+                    }
                 }
+                .scrollDismissesKeyboard(.interactively)
+                .simultaneousGesture(
+                    TapGesture().onEnded {
+                        isInputFocused = false
+                        #if canImport(UIKit)
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                        #endif
+                    }
+                )
                 .onChange(of: service.messages.count) { _ in
                     if let last = service.messages.last {
                         withAnimation {
@@ -67,7 +73,7 @@ public struct AGYWorkConsoleView: View {
             Divider()
                 .background(Color.grokDivider)
             
-            // 4. Bottom Command Bar
+            // 3. Bottom Command Bar
             bottomCommandBar
         }
         .background(Color(red: 10/255, green: 11/255, blue: 13/255))
@@ -212,44 +218,6 @@ public struct AGYWorkConsoleView: View {
                 }
             }
         }
-    }
-    
-    // Quick Command Pills
-    private var quickChipsBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(quickCommands, id: \.0) { item in
-                    Button(action: {
-                        #if canImport(UIKit)
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        #endif
-                        service.sendPrompt(item.1)
-                    }) {
-                        HStack(spacing: 4) {
-                            Text("❯")
-                                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                .foregroundColor(Color.grokLinkBlue)
-                            Text(item.0)
-                                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                                .foregroundColor(Color.grokTextPrimary)
-                        }
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 5)
-                        .background(Color.grokSurface2)
-                        .cornerRadius(6)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 6)
-                                .strokeBorder(Color.grokDivider, lineWidth: 0.8)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(service.isRunning)
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-        }
-        .background(Color(red: 12/255, green: 14/255, blue: 17/255))
     }
     
     // Empty state
