@@ -12,6 +12,8 @@ public struct AGYWorkConsoleView: View {
     @ObservedObject private var service = AGYWorkService.shared
     @State private var inputText: String = ""
     @State private var showingSettings: Bool = false
+    @State private var showingHostSheet: Bool = false
+    @State private var customHostInput: String = ""
     @FocusState private var isInputFocused: Bool
     
     private let quickCommands = [
@@ -70,23 +72,46 @@ public struct AGYWorkConsoleView: View {
         }
         .background(Color(red: 10/255, green: 11/255, blue: 13/255))
         .onAppear {
+            customHostInput = service.bridgeBaseURL
             Task {
                 await service.checkHealth()
             }
+        }
+        .sheet(isPresented: $showingHostSheet) {
+            hostConfigSheet
         }
     }
     
     // Top Status Header
     private var consoleStatusBar: some View {
         HStack(spacing: 8) {
-            // Status Dot
-            Circle()
-                .fill(service.isConnected ? Color.grokSuccess : Color.grokError)
-                .frame(width: 8, height: 8)
-            
-            Text(service.isConnected ? "AGY REMOTE (CONNECTED)" : "AGY OFFLINE")
-                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                .foregroundColor(service.isConnected ? Color.grokSuccess : Color.grokError)
+            // Status Dot + Label (Tappable to re-check or configure host)
+            Button(action: {
+                #if canImport(UIKit)
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                #endif
+                if service.isConnected {
+                    Task { await service.checkHealth() }
+                } else {
+                    customHostInput = service.bridgeBaseURL
+                    showingHostSheet = true
+                }
+            }) {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(service.isConnected ? Color.grokSuccess : Color.grokError)
+                        .frame(width: 8, height: 8)
+                    
+                    Text(service.isConnected ? "AGY CONNECTED" : "AGY OFFLINE (TAP TO FIX)")
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .foregroundColor(service.isConnected ? Color.grokSuccess : Color.grokError)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.grokSurface2)
+                .cornerRadius(6)
+            }
+            .buttonStyle(.plain)
             
             Spacer()
             
@@ -122,6 +147,71 @@ public struct AGYWorkConsoleView: View {
                 .foregroundColor(Color.grokDivider),
             alignment: .bottom
         )
+    }
+    
+    private var hostConfigSheet: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Configure AGY Bridge Server")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(Color.grokTextPrimary)
+                
+                Text("Enter the local IP address or host of your Mac where Antigravity CLI daemon is running.")
+                    .font(.system(size: 13))
+                    .foregroundColor(Color.grokTextSecondary)
+                
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("AGY Bridge Host URL:")
+                        .font(.caption)
+                        .foregroundColor(Color.grokTextSecondary)
+                    
+                    TextField("http://172.16.53.85:11435", text: $customHostInput)
+                        .font(.system(size: 14, design: .monospaced))
+                        .padding(10)
+                        .background(Color.grokSurface2)
+                        .cornerRadius(8)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                }
+                
+                Button(action: {
+                    service.setBridgeURL(customHostInput)
+                    showingHostSheet = false
+                }) {
+                    Text("Save & Connect")
+                        .font(.system(size: 14, weight: .bold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.grokAccentWhite)
+                        .foregroundColor(Color.black)
+                        .clipShape(Capsule())
+                }
+                .padding(.top, 8)
+                
+                Button(action: {
+                    customHostInput = "http://172.16.53.85:11435"
+                    service.setBridgeURL(customHostInput)
+                    showingHostSheet = false
+                }) {
+                    Text("Reset to Default (172.16.53.85:11435)")
+                        .font(.system(size: 13))
+                        .foregroundColor(Color.grokLinkBlue)
+                        .frame(maxWidth: .infinity)
+                }
+                
+                Spacer()
+            }
+            .padding(20)
+            .background(Color.grokSurface1.ignoresSafeArea())
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") {
+                        showingHostSheet = false
+                    }
+                    .foregroundColor(Color.grokTextSecondary)
+                }
+            }
+        }
     }
     
     // Quick Command Pills

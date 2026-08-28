@@ -25,15 +25,18 @@ public final class AGYWorkService: ObservableObject {
     
     public var bridgeBaseURL: String {
         let saved = UserDefaults.standard.string(forKey: "agy_bridge_url")
-        if let saved = saved, !saved.isEmpty {
-            return saved
-        }
-        // Extract host from active Ollama URL or default to current Mac IP
-        let ollama = AppConfig.activeOllamaURL
-        if let url = URL(string: ollama), let host = url.host {
-            return "http://\(host):11435"
+        if let saved = saved, !saved.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return saved.trimmingCharacters(in: .whitespacesAndNewlines)
         }
         return "http://172.16.53.85:11435"
+    }
+    
+    public func setBridgeURL(_ urlString: String) {
+        let cleaned = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        UserDefaults.standard.set(cleaned, forKey: "agy_bridge_url")
+        Task {
+            await checkHealth()
+        }
     }
     
     public init() {
