@@ -18,6 +18,7 @@ public struct ContentView: View {
         case checklist = "Checklist"
     }
     
+    @Namespace private var sidebarTabNamespace
     @AppStorage("app_mode") private var selectedAppMode: AppMode = .campus
     @State private var selectedConversation: ConversationItem?
     @State private var selectedSidebarTab: SidebarTab = .chats
@@ -216,16 +217,56 @@ public struct ContentView: View {
     // Grok History & Checklist Drawer
     private var sidebarDrawer: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Top Tab Selector: Native iOS Segmented Control (Chats vs Checklist)
-            Picker("Sidebar Section", selection: $selectedSidebarTab) {
-                Label("Chats", systemImage: "bubble.left.and.bubble.right")
-                    .tag(SidebarTab.chats)
-                
-                let count = checklistStorage.activeItems.count
-                Label(count > 0 ? "Checklist (\(count))" : "Checklist", systemImage: "checklist")
-                    .tag(SidebarTab.checklist)
+            // Top Tab Selector: Rectangular Sliding Liquid Glass Switcher (Chats vs Checklist)
+            HStack(spacing: 0) {
+                ForEach(SidebarTab.allCases, id: \.self) { tab in
+                    Button(action: {
+                        #if canImport(UIKit)
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        #endif
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                            selectedSidebarTab = tab
+                        }
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: tab == .chats ? "bubble.left.and.bubble.right" : "checklist")
+                                .font(.system(size: 12, weight: .semibold))
+                            Text(tab.rawValue)
+                                .font(.system(size: 13, weight: .semibold))
+                            
+                            if tab == .checklist && checklistStorage.activeItems.count > 0 {
+                                Text("\(checklistStorage.activeItems.count)")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color.grokLinkBlue)
+                                    .foregroundColor(.white)
+                                    .clipShape(Capsule())
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(selectedSidebarTab == tab ? Color.grokTextPrimary : Color.grokTextSecondary)
+                    .background {
+                        if selectedSidebarTab == tab {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(Color.grokSurface3)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.8)
+                                )
+                                .shadow(color: Color.black.opacity(0.25), radius: 3, x: 0, y: 1)
+                                .matchedGeometryEffect(id: "SIDEBAR_TAB_PILL", in: sidebarTabNamespace)
+                        }
+                    }
+                }
             }
-            .pickerStyle(.segmented)
+            .padding(3)
+            .background(Color.grokSurface2)
+            .cornerRadius(10)
             .padding(.horizontal, 16)
             .padding(.top, 14)
             .padding(.bottom, 12)
