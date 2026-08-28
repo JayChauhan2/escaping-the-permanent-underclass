@@ -51,7 +51,7 @@ public struct SettingsView: View {
                             Text("Mac Ollama Host URL:")
                                 .font(.caption)
                                 .foregroundColor(Color.grokTextSecondary)
-                            TextField("http://10.203.247.20:11434", text: $ollamaURLInput)
+                            TextField("http://172.16.53.85:11434", text: $ollamaURLInput)
                                 .font(.system(.subheadline, design: .monospaced))
                                 .autocorrectionDisabled()
                                 .textInputAutocapitalization(.never)

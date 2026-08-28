@@ -38,6 +38,9 @@
 		8F1234567890ABCD1234000A /* ChecklistStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1234567890ABCD12340009 /* ChecklistStorage.swift */; };
 		8F1234567890ABCD1234000C /* ChecklistCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1234567890ABCD1234000B /* ChecklistCardView.swift */; };
 		8F1234567890ABCD1234000E /* ChecklistSidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1234567890ABCD1234000D /* ChecklistSidebarView.swift */; };
+		8F1234567890ABCD12340011 /* AGYModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1234567890ABCD12340010 /* AGYModels.swift */; };
+		8F1234567890ABCD12340013 /* AGYWorkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1234567890ABCD12340012 /* AGYWorkService.swift */; };
+		8F1234567890ABCD12340015 /* AGYWorkConsoleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1234567890ABCD12340014 /* AGYWorkConsoleView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -73,6 +76,9 @@
 		8F1234567890ABCD12340009 /* ChecklistStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Services/ChecklistStorage.swift"; sourceTree = "<group>"; };
 		8F1234567890ABCD1234000B /* ChecklistCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Views/Components/ChecklistCardView.swift"; sourceTree = "<group>"; };
 		8F1234567890ABCD1234000D /* ChecklistSidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Views/Components/ChecklistSidebarView.swift"; sourceTree = "<group>"; };
+		8F1234567890ABCD12340010 /* AGYModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Models/AGYModels.swift"; sourceTree = "<group>"; };
+		8F1234567890ABCD12340012 /* AGYWorkService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Services/AGYWorkService.swift"; sourceTree = "<group>"; };
+		8F1234567890ABCD12340014 /* AGYWorkConsoleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Views/AGYWorkConsoleView.swift"; sourceTree = "<group>"; };
 		42B16AC3305C4E749A18B8C5 /* StudentAgent.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StudentAgent.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -131,6 +137,9 @@
 				8F1234567890ABCD12340009 /* ChecklistStorage.swift */,
 				8F1234567890ABCD1234000B /* ChecklistCardView.swift */,
 				8F1234567890ABCD1234000D /* ChecklistSidebarView.swift */,
+				8F1234567890ABCD12340010 /* AGYModels.swift */,
+				8F1234567890ABCD12340012 /* AGYWorkService.swift */,
+				8F1234567890ABCD12340014 /* AGYWorkConsoleView.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -233,6 +242,9 @@
 				8F1234567890ABCD1234000A /* ChecklistStorage.swift in Sources */,
 				8F1234567890ABCD1234000C /* ChecklistCardView.swift in Sources */,
 				8F1234567890ABCD1234000E /* ChecklistSidebarView.swift in Sources */,
+				8F1234567890ABCD12340011 /* AGYModels.swift in Sources */,
+				8F1234567890ABCD12340013 /* AGYWorkService.swift in Sources */,
+				8F1234567890ABCD12340015 /* AGYWorkConsoleView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

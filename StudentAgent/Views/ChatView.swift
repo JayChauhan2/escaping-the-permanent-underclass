@@ -24,16 +24,20 @@ public struct ChatView: View {
     @State private var showingSettings: Bool = false
     @FocusState private var isInputFocused: Bool
     
+    public let showsHeader: Bool
+    
     public init(
         conversation: ConversationItem,
         orchestrator: AgentOrchestrator,
         onOpenSidebar: @escaping () -> Void = {},
-        onNewChat: @escaping () -> Void = {}
+        onNewChat: @escaping () -> Void = {},
+        showsHeader: Bool = true
     ) {
         self.conversation = conversation
         self.orchestrator = orchestrator
         self.onOpenSidebar = onOpenSidebar
         self.onNewChat = onNewChat
+        self.showsHeader = showsHeader
     }
     
     private var messages: [ChatMessageItem] {
@@ -42,49 +46,51 @@ public struct ChatView: View {
     
     public var body: some View {
         VStack(spacing: 0) {
-            // Grok Top Bar
-            HStack(spacing: 12) {
-                Button(action: onOpenSidebar) {
-                    Image(systemName: "line.3.horizontal")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(Color.grokTextPrimary)
-                        .frame(width: 36, height: 36)
-                }
-                .buttonStyle(GrokPressableStyle())
-                
-                Spacer()
-                
-                // Centered Conversation Title & Provider Subtitle
-                VStack(spacing: 2) {
-                    Text(conversation.title)
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundColor(Color.grokTextPrimary)
-                        .lineLimit(1)
-                    
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(Color.grokSuccess)
-                            .frame(width: 5, height: 5)
-                        Text(orchestrator.currentProvider.rawValue.prefix(16))
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundColor(Color.grokTextSecondary)
+            // Grok Top Bar (Optional if embedded in container with global switcher)
+            if showsHeader {
+                HStack(spacing: 12) {
+                    Button(action: onOpenSidebar) {
+                        Image(systemName: "line.3.horizontal")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(Color.grokTextPrimary)
+                            .frame(width: 36, height: 36)
                     }
+                    .buttonStyle(GrokPressableStyle())
+                    
+                    Spacer()
+                    
+                    // Centered Conversation Title & Provider Subtitle
+                    VStack(spacing: 2) {
+                        Text(conversation.title)
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundColor(Color.grokTextPrimary)
+                            .lineLimit(1)
+                        
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(Color.grokSuccess)
+                                .frame(width: 5, height: 5)
+                            Text(orchestrator.currentProvider.rawValue.prefix(16))
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(Color.grokTextSecondary)
+                        }
+                    }
+                    
+                    Spacer()
+                    
+                    Button(action: onNewChat) {
+                        Image(systemName: "square.and.pencil")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(Color.grokTextPrimary)
+                            .frame(width: 36, height: 36)
+                    }
+                    .buttonStyle(GrokPressableStyle())
                 }
-                
-                Spacer()
-                
-                Button(action: onNewChat) {
-                    Image(systemName: "square.and.pencil")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(Color.grokTextPrimary)
-                        .frame(width: 36, height: 36)
-                }
-                .buttonStyle(GrokPressableStyle())
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(Color.grokCanvas)
+                .overlay(Divider().background(Color.grokDivider), alignment: .bottom)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(Color.grokCanvas)
-            .overlay(Divider().background(Color.grokDivider), alignment: .bottom)
             
             // Messages Scroll Area
             ScrollViewReader { proxy in

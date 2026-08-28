@@ -18,6 +18,7 @@ public struct ContentView: View {
         case checklist = "Checklist"
     }
     
+    @AppStorage("app_mode") private var selectedAppMode: AppMode = .campus
     @State private var selectedConversation: ConversationItem?
     @State private var selectedSidebarTab: SidebarTab = .chats
     @State private var showingSidebar: Bool = false
@@ -41,18 +42,115 @@ public struct ContentView: View {
     
     public var body: some View {
         ZStack(alignment: .leading) {
-            // 1. Main Chat Surface (Native Keyboard Avoidance enabled - NO GeometryReader lock)
-            if let convo = selectedConversation ?? storage.conversations.first {
-                ChatView(
-                    conversation: convo,
-                    orchestrator: orchestrator,
-                    onOpenSidebar: {
-                        openSidebar()
-                    },
-                    onNewChat: createNewChat
-                )
-            } else {
-                Color.grokCanvas.ignoresSafeArea()
+            // 1. Main Application Surface with Top Mode Switcher
+            VStack(spacing: 0) {
+                // Top Global Bar: Sidebar Trigger + Segmented Mode Switcher + Action
+                HStack(spacing: 8) {
+                    Button(action: openSidebar) {
+                        Image(systemName: "line.3.horizontal")
+                            .font(.system(size: 17, weight: .medium))
+                            .foregroundColor(Color.grokTextPrimary)
+                            .frame(width: 36, height: 36)
+                    }
+                    .buttonStyle(GrokPressableStyle())
+                    
+                    Spacer(minLength: 4)
+                    
+                    // Floating Mode Switcher
+                    HStack(spacing: 2) {
+                        Button(action: {
+                            #if canImport(UIKit)
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            #endif
+                            withAnimation(.easeInOut(duration: 0.18)) {
+                                selectedAppMode = .campus
+                            }
+                        }) {
+                            HStack(spacing: 5) {
+                                Image(systemName: "graduationcap.fill")
+                                    .font(.system(size: 11))
+                                Text("Campus")
+                                    .font(.system(size: 12, weight: .semibold))
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(selectedAppMode == .campus ? Color.grokSurface3 : Color.clear)
+                            .foregroundColor(selectedAppMode == .campus ? Color.grokTextPrimary : Color.grokTextSecondary)
+                            .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        
+                        Button(action: {
+                            #if canImport(UIKit)
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            #endif
+                            withAnimation(.easeInOut(duration: 0.18)) {
+                                selectedAppMode = .work
+                            }
+                        }) {
+                            HStack(spacing: 5) {
+                                Image(systemName: "terminal.fill")
+                                    .font(.system(size: 11))
+                                Text("AGY Work")
+                                    .font(.system(size: 12, weight: .semibold))
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(selectedAppMode == .work ? Color.grokSurface3 : Color.clear)
+                            .foregroundColor(selectedAppMode == .work ? Color.grokTextPrimary : Color.grokTextSecondary)
+                            .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(3)
+                    .background(Color.grokSurface1)
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule()
+                            .strokeBorder(Color.grokDivider, lineWidth: 1)
+                    )
+                    
+                    Spacer(minLength: 4)
+                    
+                    if selectedAppMode == .campus {
+                        Button(action: createNewChat) {
+                            Image(systemName: "square.and.pencil")
+                                .font(.system(size: 17, weight: .medium))
+                                .foregroundColor(Color.grokTextPrimary)
+                                .frame(width: 36, height: 36)
+                        }
+                        .buttonStyle(GrokPressableStyle())
+                    } else {
+                        Button(action: { showingSettings = true }) {
+                            Image(systemName: "gearshape")
+                                .font(.system(size: 17, weight: .medium))
+                                .foregroundColor(Color.grokTextPrimary)
+                                .frame(width: 36, height: 36)
+                        }
+                        .buttonStyle(GrokPressableStyle())
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.grokCanvas)
+                .overlay(Divider().background(Color.grokDivider), alignment: .bottom)
+                
+                // Mode Content Views
+                if selectedAppMode == .campus {
+                    if let convo = selectedConversation ?? storage.conversations.first {
+                        ChatView(
+                            conversation: convo,
+                            orchestrator: orchestrator,
+                            onOpenSidebar: openSidebar,
+                            onNewChat: createNewChat,
+                            showsHeader: false
+                        )
+                    } else {
+                        Color.grokCanvas.ignoresSafeArea()
+                    }
+                } else {
+                    AGYWorkConsoleView()
+                }
             }
             
             // 2. Dimming Backdrop
