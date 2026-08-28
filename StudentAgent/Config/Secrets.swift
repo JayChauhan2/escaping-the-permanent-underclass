@@ -56,4 +56,19 @@ public struct AppConfig {
             UserDefaults.standard.set(newValue, forKey: "deepseek_api_key")
         }
     }
+    
+    // MARK: - 4. TAVILY SEARCH API CONFIGURATION
+    public static let defaultTavilyAPIKey: String = "tvly-YOUR_TAVILY_API_KEY"
+    
+    public static var activeTavilyAPIKey: String {
+        get {
+            if let saved = UserDefaults.standard.string(forKey: "tavily_api_key"), !saved.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return saved
+            }
+            return defaultTavilyAPIKey
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "tavily_api_key")
+        }
+    }
 }

@@ -27,6 +27,7 @@ public final class AgentOrchestrator: ObservableObject {
     private let storage = ChatStorage.shared
     private let debugLogger = DebugLogger.shared
     private let ocrService = VisionOCRService.shared
+    private let tavilyService = TavilySearchService.shared
     
     private var activeProcessingTask: Task<Void, Never>?
     
@@ -43,6 +44,24 @@ public final class AgentOrchestrator: ObservableObject {
     // MARK: - Available Tools for DeepSeek
     private var availableTools: [DeepSeekToolDefinition] {
         return [
+            DeepSeekToolDefinition(
+                name: "search_web",
+                description: "Searches the live web via Tavily Search engine for real-time campus events, study resources, facts, professor contacts, courses, or general knowledge.",
+                parameters: [
+                    "type": AnyCodable("object"),
+                    "properties": AnyCodable([
+                        "query": [
+                            "type": "string",
+                            "description": "The search query string"
+                        ],
+                        "max_results": [
+                            "type": "integer",
+                            "description": "Maximum number of search results to return (default 5)"
+                        ]
+                    ]),
+                    "required": AnyCodable(["query"])
+                ]
+            ),
             DeepSeekToolDefinition(
                 name: "fetch_recent_emails",
                 description: "Fetches recent student emails from live Gmail/Outlook inbox with full message bodies.",
@@ -233,23 +252,25 @@ public final class AgentOrchestrator: ObservableObject {
     public func processUserMessage(
         text: String,
         conversationId: String,
-        attachedImage: UIImage? = nil
+        attachedImage: UIImage? = nil,
+        isSearchMode: Bool = false
     ) {
         activeProcessingTask?.cancel()
         
         activeProcessingTask = Task {
-            await executeAgentTurn(text: text, conversationId: conversationId, attachedImage: attachedImage)
+            await executeAgentTurn(text: text, conversationId: conversationId, attachedImage: attachedImage, isSearchMode: isSearchMode)
         }
     }
     #else
     public func processUserMessage(
         text: String,
-        conversationId: String
+        conversationId: String,
+        isSearchMode: Bool = false
     ) {
         activeProcessingTask?.cancel()
         
         activeProcessingTask = Task {
-            await executeAgentTurn(text: text, conversationId: conversationId)
+            await executeAgentTurn(text: text, conversationId: conversationId, isSearchMode: isSearchMode)
         }
     }
     #endif
@@ -268,12 +289,13 @@ public final class AgentOrchestrator: ObservableObject {
     private func executeAgentTurn(
         text: String,
         conversationId: String,
-        attachedImage: UIImage? = nil
+        attachedImage: UIImage? = nil,
+        isSearchMode: Bool = false
     ) async {
         isProcessing = true
         currentStep = AgentExecutionStep(icon: "sparkles", text: "Thinking...")
         
-        debugLogger.log(type: .userPrompt, title: "User Input", payload: text)
+        debugLogger.log(type: .userPrompt, title: "User Input", payload: "\(isSearchMode ? "[Search Mode Active] " : "")\(text)")
         
         var savedFilename: String? = nil
         var ocrText: String = ""
@@ -284,19 +306,34 @@ public final class AgentOrchestrator: ObservableObject {
             debugLogger.log(type: .general, title: "Attached Image OCR Result", payload: ocrText)
         }
         
-        await runTurnPipeline(text: text, conversationId: conversationId, savedFilename: savedFilename, ocrText: ocrText)
+        var searchContext = ""
+        if isSearchMode {
+            currentStep = AgentExecutionStep(icon: "globe", text: "Searching live web via Tavily...")
+            searchContext = await tavilyService.searchFormattedSummary(query: text, maxResults: 5)
+            debugLogger.log(type: .general, title: "Tavily Search Injected Context", payload: searchContext)
+        }
+        
+        await runTurnPipeline(text: text, conversationId: conversationId, savedFilename: savedFilename, ocrText: ocrText, searchContext: searchContext)
     }
     #else
     private func executeAgentTurn(
         text: String,
-        conversationId: String
+        conversationId: String,
+        isSearchMode: Bool = false
     ) async {
         isProcessing = true
         currentStep = AgentExecutionStep(icon: "sparkles", text: "Thinking...")
         
-        debugLogger.log(type: .userPrompt, title: "User Input", payload: text)
+        debugLogger.log(type: .userPrompt, title: "User Input", payload: "\(isSearchMode ? "[Search Mode Active] " : "")\(text)")
         
-        await runTurnPipeline(text: text, conversationId: conversationId, savedFilename: nil, ocrText: "")
+        var searchContext = ""
+        if isSearchMode {
+            currentStep = AgentExecutionStep(icon: "globe", text: "Searching live web via Tavily...")
+            searchContext = await tavilyService.searchFormattedSummary(query: text, maxResults: 5)
+            debugLogger.log(type: .general, title: "Tavily Search Injected Context", payload: searchContext)
+        }
+        
+        await runTurnPipeline(text: text, conversationId: conversationId, savedFilename: nil, ocrText: "", searchContext: searchContext)
     }
     #endif
     
@@ -304,7 +341,8 @@ public final class AgentOrchestrator: ObservableObject {
         text: String,
         conversationId: String,
         savedFilename: String?,
-        ocrText: String
+        ocrText: String,
+        searchContext: String = ""
     ) async {
         let userMsg = ChatMessageItem(
             role: .user,
@@ -322,8 +360,13 @@ public final class AgentOrchestrator: ObservableObject {
         
         for msg in history {
             var msgContent = msg.content
-            if msg.id == userMsg.id && !ocrText.isEmpty {
-                msgContent += "\n\n[Attached Reference Image Content Extracted via OCR]:\n\(ocrText)"
+            if msg.id == userMsg.id {
+                if !ocrText.isEmpty {
+                    msgContent += "\n\n[Attached Reference Image Content Extracted via OCR]:\n\(ocrText)"
+                }
+                if !searchContext.isEmpty {
+                    msgContent += "\n\n[Live Tavily Web Search Results for '\(text)']:\n\(searchContext)\n\n(Synthesize the above live web results to answer the student's request with clear citation URLs.)"
+                }
             }
             apiMessages.append(DeepSeekMessage(role: msg.roleRaw, content: msgContent))
         }
@@ -444,6 +487,8 @@ public final class AgentOrchestrator: ObservableObject {
     
     private func describeToolCall(name: String) -> (icon: String, label: String) {
         switch name {
+        case "search_web":
+            return ("globe", "Searching live web via Tavily...")
         case "fetch_recent_emails":
             return ("envelope.badge.shield.half.filled", "Reading inbox messages...")
         case "search_emails":
@@ -487,6 +532,11 @@ public final class AgentOrchestrator: ObservableObject {
         let args = (try? JSONSerialization.jsonObject(with: argumentsJSON.data(using: .utf8) ?? Data()) as? [String: Any]) ?? [:]
         
         switch name {
+        case "search_web":
+            let query = args["query"] as? String ?? ""
+            let maxResults = args["max_results"] as? Int ?? 5
+            return await tavilyService.searchFormattedSummary(query: query, maxResults: maxResults)
+            
         case "fetch_recent_emails":
             let hours = args["hours_back"] as? Int ?? 0
             let maxCount = args["max_count"] as? Int ?? 50

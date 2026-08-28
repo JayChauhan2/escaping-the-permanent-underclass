@@ -33,6 +33,7 @@
 		7D13F7C6291A401CAA76C414 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 911D5ACEAEF540F0AA232A21 /* SettingsView.swift */; };
 		8F1234567890ABCD12340002 /* VisionOCRService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1234567890ABCD12340001 /* VisionOCRService.swift */; };
 		8F1234567890ABCD12340004 /* CameraPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1234567890ABCD12340003 /* CameraPickerView.swift */; };
+		8F1234567890ABCD12340006 /* TavilySearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1234567890ABCD12340005 /* TavilySearchService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -63,6 +64,7 @@
 		911D5ACEAEF540F0AA232A21 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Views/SettingsView.swift"; sourceTree = "<group>"; };
 		8F1234567890ABCD12340001 /* VisionOCRService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Services/VisionOCRService.swift"; sourceTree = "<group>"; };
 		8F1234567890ABCD12340003 /* CameraPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Views/Components/CameraPickerView.swift"; sourceTree = "<group>"; };
+		8F1234567890ABCD12340005 /* TavilySearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Services/TavilySearchService.swift"; sourceTree = "<group>"; };
 		42B16AC3305C4E749A18B8C5 /* StudentAgent.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StudentAgent.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -116,6 +118,7 @@
 				911D5ACEAEF540F0AA232A21 /* SettingsView.swift */,
 				8F1234567890ABCD12340001 /* VisionOCRService.swift */,
 				8F1234567890ABCD12340003 /* CameraPickerView.swift */,
+				8F1234567890ABCD12340005 /* TavilySearchService.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -213,6 +216,7 @@
 				7D13F7C6291A401CAA76C414 /* SettingsView.swift in Sources */,
 				8F1234567890ABCD12340002 /* VisionOCRService.swift in Sources */,
 				8F1234567890ABCD12340004 /* CameraPickerView.swift in Sources */,
+				8F1234567890ABCD12340006 /* TavilySearchService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -14,6 +14,7 @@ public struct SettingsView: View {
     @ObservedObject private var storage = ChatStorage.shared
     
     @State private var apiKeyInput: String = AppConfig.activeDeepSeekAPIKey
+    @State private var tavilyKeyInput: String = AppConfig.activeTavilyAPIKey
     @State private var selectedModel: String = AppConfig.defaultModel
     @State private var showingExportSuccess: Bool = false
     @State private var showingRestoreSuccess: Bool = false
@@ -40,6 +41,24 @@ public struct SettingsView: View {
                     
                     Button("Save API Settings") {
                         AppConfig.activeDeepSeekAPIKey = apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                        #if canImport(UIKit)
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                        #endif
+                    }
+                    .foregroundColor(Color.grokLinkBlue)
+                }
+                
+                // MARK: - 2. Tavily Web Search API
+                Section(header: Text("TAVILY WEB SEARCH API").foregroundColor(Color.grokTextSecondary)) {
+                    SecureField("Paste Tavily API Key (tvly-...)", text: $tavilyKeyInput)
+                        .foregroundColor(Color.grokTextPrimary)
+                    
+                    Text("Powers live web search when Search Mode is activated in the prompt bar.")
+                        .font(.caption)
+                        .foregroundColor(Color.grokTextSecondary)
+                    
+                    Button("Save Tavily Key") {
+                        AppConfig.activeTavilyAPIKey = tavilyKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
                         #if canImport(UIKit)
                         UINotificationFeedbackGenerator().notificationOccurred(.success)
                         #endif

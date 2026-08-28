@@ -20,6 +20,7 @@ public struct ChatView: View {
     #if canImport(UIKit)
     @State private var attachedImage: UIImage? = nil
     #endif
+    @State private var isSearchMode: Bool = false
     @State private var showingSettings: Bool = false
     @FocusState private var isInputFocused: Bool
     
@@ -98,7 +99,8 @@ public struct ChatView: View {
                             }
                         }
                     }
-                    .padding(.vertical, 12)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
                 }
                 #if os(iOS)
                 .scrollDismissesKeyboard(.interactively)
@@ -112,14 +114,14 @@ public struct ChatView: View {
                 }
                 .onChange(of: messages.count) { _ in
                     if let last = messages.last {
-                        withAnimation(.easeOut(duration: 0.25)) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                             proxy.scrollTo(last.id, anchor: .bottom)
                         }
                     }
                 }
             }
             
-            // Live Thinking / Step Progress Pill
+            // Floating Thinking Pill if Processing
             if let step = orchestrator.currentStep {
                 GrokThinkingPill(step: step)
                     .padding(.horizontal, 16)
@@ -127,11 +129,12 @@ public struct ChatView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
             
-            // Grok Prompt Bar with Plus Button & Stop Generation
+            // Grok Prompt Bar with Plus Button & Stop Generation & Search Mode
             #if canImport(UIKit)
             GrokPromptBar(
                 text: $inputText,
                 attachedImage: $attachedImage,
+                isSearchMode: $isSearchMode,
                 isProcessing: orchestrator.isProcessing,
                 onSend: sendMessage,
                 onStop: {
@@ -141,6 +144,7 @@ public struct ChatView: View {
             #else
             GrokPromptBar(
                 text: $inputText,
+                isSearchMode: $isSearchMode,
                 isProcessing: orchestrator.isProcessing,
                 onSend: sendMessage,
                 onStop: {
@@ -155,44 +159,38 @@ public struct ChatView: View {
         }
     }
     
-    // Minimalist Grok-style empty canvas
+    // MARK: - Empty State
     private var emptyStateView: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 20) {
             Spacer(minLength: 40)
             
-            ZStack {
-                Circle()
-                    .fill(Color.grokSurface1)
-                    .frame(width: 64, height: 64)
-                    .overlay(Circle().strokeBorder(Color.grokDivider, lineWidth: 1))
-                
-                Image(systemName: "graduationcap")
-                    .font(.system(size: 26, weight: .bold))
-                    .foregroundColor(Color.grokTextPrimary)
-            }
+            Image(systemName: "sparkles")
+                .font(.system(size: 40, weight: .light))
+                .foregroundColor(Color.grokAccentWhite.opacity(0.85))
             
-            VStack(spacing: 4) {
-                Text("Student Agent")
-                    .font(.system(size: 20, weight: .bold))
+            VStack(spacing: 6) {
+                Text("Student AI Assistant")
+                    .font(.system(size: 22, weight: .bold))
                     .foregroundColor(Color.grokTextPrimary)
                 
-                Text("\(orchestrator.currentProvider.rawValue) • DeepSeek")
-                    .font(.system(size: 13))
+                Text("Search inbox, sync calendar deadlines, search the web with Tavily, or upload syllabus photos.")
+                    .font(.system(size: 14))
                     .foregroundColor(Color.grokTextSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
             }
             
-            // Suggestion Chips
-            VStack(spacing: 8) {
+            VStack(spacing: 10) {
                 promptChip(
-                    title: "Triage Today's Urgent Emails",
-                    detail: "Find advisor links, I-9 form, deadlines",
-                    prompt: "Check my student emails from the last 24 hours. Summarize high urgency action items, course logistics, and club news in bullet points."
+                    title: "Check Inbox & Schedule Deadlines",
+                    detail: "Find professor emails & propose calendar events",
+                    prompt: "Check my recent emails from professors or advisors, summarize urgent updates, and propose calendar cards for any homework deadlines."
                 )
                 
                 promptChip(
-                    title: "Extract Deadlines to Apple Calendar",
-                    detail: "Drafts calendar events with 1-tap confirmation",
-                    prompt: "Look through recent emails for upcoming deadlines or advising meetings and propose calendar events."
+                    title: "Tavily Live Web Search",
+                    detail: "Search campus events, course info & facts",
+                    prompt: "Search the web for upcoming university academic deadlines and registration dates."
                 )
                 
                 promptChip(
@@ -247,12 +245,15 @@ public struct ChatView: View {
         guard !text.isEmpty else { return }
         #endif
         
+        let searchActive = isSearchMode
+        
         inputText = ""
         #if canImport(UIKit)
         attachedImage = nil
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         #endif
         isInputFocused = false
+        isSearchMode = false
         
         let messageText = text.isEmpty ? "Refer to this attached image." : text
         
@@ -266,12 +267,14 @@ public struct ChatView: View {
         orchestrator.processUserMessage(
             text: messageText,
             conversationId: conversation.id,
-            attachedImage: imageToSend
+            attachedImage: imageToSend,
+            isSearchMode: searchActive
         )
         #else
         orchestrator.processUserMessage(
             text: messageText,
-            conversationId: conversation.id
+            conversationId: conversation.id,
+            isSearchMode: searchActive
         )
         #endif
     }

@@ -74,6 +74,7 @@ public struct GrokPromptBar: View {
     #if canImport(UIKit)
     @Binding public var attachedImage: UIImage?
     #endif
+    @Binding public var isSearchMode: Bool
     public var isProcessing: Bool
     public var onSend: () -> Void
     public var onStop: () -> Void
@@ -87,12 +88,14 @@ public struct GrokPromptBar: View {
     public init(
         text: Binding<String>,
         attachedImage: Binding<UIImage?>,
+        isSearchMode: Binding<Bool>,
         isProcessing: Bool,
         onSend: @escaping () -> Void,
         onStop: @escaping () -> Void = {}
     ) {
         self._text = text
         self._attachedImage = attachedImage
+        self._isSearchMode = isSearchMode
         self.isProcessing = isProcessing
         self.onSend = onSend
         self.onStop = onStop
@@ -100,11 +103,13 @@ public struct GrokPromptBar: View {
     #else
     public init(
         text: Binding<String>,
+        isSearchMode: Binding<Bool>,
         isProcessing: Bool,
         onSend: @escaping () -> Void,
         onStop: @escaping () -> Void = {}
     ) {
         self._text = text
+        self._isSearchMode = isSearchMode
         self.isProcessing = isProcessing
         self.onSend = onSend
         self.onStop = onStop
@@ -127,6 +132,35 @@ public struct GrokPromptBar: View {
     
     public var body: some View {
         VStack(alignment: .leading, spacing: 6) {
+            // Search Mode Active Indicator Banner
+            if isSearchMode {
+                HStack(spacing: 6) {
+                    Image(systemName: "globe")
+                        .font(.system(size: 12, weight: .bold))
+                    Text("Tavily Web Search Mode Active")
+                        .font(.system(size: 12, weight: .semibold))
+                    Spacer()
+                    Button(action: {
+                        #if canImport(UIKit)
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        #endif
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                            isSearchMode = false
+                        }
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 14))
+                    }
+                }
+                .foregroundColor(Color.grokLinkBlue)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Color.grokLinkBlue.opacity(0.12))
+                .cornerRadius(10)
+                .padding(.horizontal, 4)
+                .transition(.scale.combined(with: .opacity))
+            }
+            
             #if canImport(UIKit)
             // Attached Image Preview Pill
             if let img = attachedImage {
@@ -171,7 +205,7 @@ public struct GrokPromptBar: View {
             }
             #endif
             
-            HStack(alignment: .bottom, spacing: 10) {
+            HStack(alignment: .bottom, spacing: 8) {
                 #if canImport(UIKit)
                 // Plus Button with iOS Native Glass Menu (Camera & Photos)
                 Menu {
@@ -224,7 +258,31 @@ public struct GrokPromptBar: View {
                     .background(Circle().fill(Color.grokSurface2))
                 #endif
                 
-                TextField("Ask anything or reference an image...", text: $text, axis: .vertical)
+                // Tavily Web Search Mode Toggle Button
+                Button(action: {
+                    #if canImport(UIKit)
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    #endif
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                        isSearchMode.toggle()
+                    }
+                }) {
+                    Image(systemName: isSearchMode ? "globe.americas.fill" : "globe")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(isSearchMode ? Color.grokLinkBlue : Color.grokTextSecondary)
+                        .frame(width: 32, height: 32)
+                        .background(
+                            Circle()
+                                .fill(isSearchMode ? Color.grokLinkBlue.opacity(0.2) : Color.grokSurface2)
+                        )
+                        .overlay(
+                            Circle()
+                                .strokeBorder(isSearchMode ? Color.grokLinkBlue.opacity(0.8) : Color.clear, lineWidth: 1.2)
+                        )
+                }
+                .buttonStyle(GrokPressableStyle(scale: 0.92))
+                
+                TextField(isSearchMode ? "Search the web with Tavily..." : "Ask anything or reference an image...", text: $text, axis: .vertical)
                     .font(.system(size: 16))
                     .foregroundColor(Color.grokTextPrimary)
                     .tint(Color.grokLinkBlue)
