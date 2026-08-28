@@ -13,6 +13,9 @@ public struct SettingsView: View {
     @ObservedObject public var orchestrator: AgentOrchestrator
     @ObservedObject private var storage = ChatStorage.shared
     
+    @State private var selectedModelProvider: AppConfig.ModelProvider = AppConfig.activeModelProvider
+    @State private var ollamaURLInput: String = AppConfig.activeOllamaURL
+    @State private var ollamaModelInput: String = AppConfig.activeOllamaModel
     @State private var apiKeyInput: String = AppConfig.activeDeepSeekAPIKey
     @State private var tavilyKeyInput: String = AppConfig.activeTavilyAPIKey
     @State private var selectedModel: String = AppConfig.defaultModel
@@ -29,23 +32,69 @@ public struct SettingsView: View {
     public var body: some View {
         NavigationStack {
             Form {
-                // MARK: - 1. DeepSeek API
-                Section(header: Text("DEEPSEEK API CONFIGURATION").foregroundColor(Color.grokTextSecondary)) {
-                    SecureField("Paste DeepSeek API Key", text: $apiKeyInput)
-                        .foregroundColor(Color.grokTextPrimary)
-                    
-                    Picker("Model", selection: $selectedModel) {
-                        Text("DeepSeek Chat (V3)").tag("deepseek-chat")
-                        Text("DeepSeek Reasoner (R1)").tag("deepseek-reasoner")
+                // MARK: - 1. AI Model & Inference Provider
+                Section(header: Text("AI INFERENCE SOURCE & MODEL").foregroundColor(Color.grokTextSecondary)) {
+                    Picker("Inference Engine", selection: $selectedModelProvider) {
+                        ForEach(AppConfig.ModelProvider.allCases) { p in
+                            Text(p.rawValue).tag(p)
+                        }
                     }
-                    
-                    Button("Save API Settings") {
-                        AppConfig.activeDeepSeekAPIKey = apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                    .onChange(of: selectedModelProvider) { newProvider in
+                        AppConfig.activeModelProvider = newProvider
                         #if canImport(UIKit)
-                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                         #endif
                     }
-                    .foregroundColor(Color.grokLinkBlue)
+                    
+                    if selectedModelProvider == .localOllama {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Mac Ollama Host URL:")
+                                .font(.caption)
+                                .foregroundColor(Color.grokTextSecondary)
+                            TextField("http://10.203.247.20:11434", text: $ollamaURLInput)
+                                .font(.system(.subheadline, design: .monospaced))
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.never)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Local Model Name:")
+                                .font(.caption)
+                                .foregroundColor(Color.grokTextSecondary)
+                            TextField("qwen2.5:14b", text: $ollamaModelInput)
+                                .font(.system(.subheadline, design: .monospaced))
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.never)
+                        }
+                        
+                        Button("Save Local Ollama Settings") {
+                            AppConfig.activeModelProvider = .localOllama
+                            AppConfig.activeOllamaURL = ollamaURLInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                            AppConfig.activeOllamaModel = ollamaModelInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                            #if canImport(UIKit)
+                            UINotificationFeedbackGenerator().notificationOccurred(.success)
+                            #endif
+                        }
+                        .foregroundColor(Color.grokLinkBlue)
+                    } else {
+                        SecureField("Paste DeepSeek API Key", text: $apiKeyInput)
+                            .foregroundColor(Color.grokTextPrimary)
+                        
+                        Picker("Model", selection: $selectedModel) {
+                            Text("DeepSeek Chat (V3)").tag("deepseek-chat")
+                            Text("DeepSeek Reasoner (R1)").tag("deepseek-reasoner")
+                        }
+                        
+                        Button("Save Cloud API Settings") {
+                            AppConfig.activeModelProvider = .deepseekCloud
+                            AppConfig.activeDeepSeekAPIKey = apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                            UserDefaults.standard.set(selectedModel, forKey: "deepseek_model")
+                            #if canImport(UIKit)
+                            UINotificationFeedbackGenerator().notificationOccurred(.success)
+                            #endif
+                        }
+                        .foregroundColor(Color.grokLinkBlue)
+                    }
                 }
                 
                 // MARK: - 2. Tavily Web Search API

@@ -147,21 +147,25 @@ public final class DeepSeekService {
     public func sendChatCompletionStream(
         messages: [DeepSeekMessage],
         tools: [DeepSeekToolDefinition]? = nil,
-        model: String = AppConfig.defaultModel,
-        apiKey: String = AppConfig.activeDeepSeekAPIKey,
+        model: String = AppConfig.activeModel,
+        apiKey: String = AppConfig.activeAPIKey,
         onToken: @escaping @MainActor (String) -> Void
     ) async throws -> DeepSeekMessage {
         guard !apiKey.isEmpty && apiKey != "YOUR_DEEPSEEK_API_KEY_HERE" else {
             let err = NSError(
                 domain: "DeepSeekService",
                 code: 401,
-                userInfo: [NSLocalizedDescriptionKey: "DeepSeek API key is missing. Please set your API key in Secrets.swift or in Settings."]
+                userInfo: [NSLocalizedDescriptionKey: "API key is missing. Please set your API key in Settings."]
             )
             await DebugLogger.shared.log(type: .error, title: "API Key Missing", payload: err.localizedDescription)
             throw err
         }
         
-        let url = URL(string: "\(AppConfig.deepSeekBaseURL)/v1/chat/completions")!
+        let rawBase = AppConfig.activeBaseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let endpointString = rawBase.hasSuffix("/v1") ? "\(rawBase)/chat/completions" : "\(rawBase)/v1/chat/completions"
+        guard let url = URL(string: endpointString) else {
+            throw NSError(domain: "DeepSeekService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid endpoint: \(endpointString)"])
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")

@@ -4,3 +4,5 @@
 - **Be direct**: Short sentences, keywords, actionable steps.
 - **Keep meaning**: Preserve full technical accuracy, complete code blocks, and precise file paths.
 - **Structure**: [Thing] [Action] [Reason] -> [Next Step].
+- **Completion Chime**: Always run command `osascript -e 'display notification "Task finished" with title "Antigravity"' && afplay /System/Library/Sounds/Pop.aiff` when completing tasks.
+
