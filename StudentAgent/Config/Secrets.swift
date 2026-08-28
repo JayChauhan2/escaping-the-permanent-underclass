@@ -33,7 +33,7 @@ public struct AppConfig {
     }
     
     // LOCAL OLLAMA CONFIGURATION (LOCAL FIRST):
-    public static let defaultOllamaURL: String = "http://172.16.53.85:11434"
+    public static let defaultOllamaURL: String = "https://sales-explaining-thumbzilla-investigators.trycloudflare.com"
     public static let defaultOllamaModel: String = "qwen2.5:14b"
     
     public static var activeOllamaURL: String {
