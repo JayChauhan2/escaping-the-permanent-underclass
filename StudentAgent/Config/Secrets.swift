@@ -33,14 +33,14 @@ public struct AppConfig {
     }
     
     // LOCAL OLLAMA CONFIGURATION (LOCAL FIRST):
-    public static let defaultOllamaURL: String = "https://sales-explaining-thumbzilla-investigators.trycloudflare.com"
+    public static let defaultOllamaURL: String = "https://xml-texas-ian-film.trycloudflare.com"
     public static let defaultOllamaModel: String = "qwen2.5:14b"
     
     public static var activeOllamaURL: String {
         get {
             var raw = UserDefaults.standard.string(forKey: "ollama_url")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            // Force-migrate any old unreachable local/Tailscale IPs or blank entries
-            if raw.isEmpty || raw.contains("100.") || raw.contains("172.16") || raw.contains("10.203") || raw.contains("localhost") || raw.contains("127.0.0.1") {
+            // Force-migrate any old unreachable local/Tailscale IPs or dead tunnels
+            if raw.isEmpty || raw.contains("sales-explaining") || raw.contains("100.") || raw.contains("172.16") || raw.contains("10.203") || raw.contains("localhost") || raw.contains("127.0.0.1") {
                 raw = defaultOllamaURL
                 UserDefaults.standard.set(defaultOllamaURL, forKey: "ollama_url")
             }

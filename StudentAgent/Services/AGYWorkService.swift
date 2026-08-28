@@ -27,7 +27,7 @@ public final class AGYWorkService: ObservableObject {
     
     private var activeTask: Task<Void, Never>? = nil
     
-    public static let defaultBridgeURL: String = "https://deviant-richmond-strange-real.trycloudflare.com"
+    public static let defaultBridgeURL: String = "https://sku-belfast-newbie-surrounding.trycloudflare.com"
     
     private var dataDirectory: URL {
         let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
@@ -44,7 +44,7 @@ public final class AGYWorkService: ObservableObject {
     
     public var bridgeBaseURL: String {
         var raw = UserDefaults.standard.string(forKey: "agy_bridge_url")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if raw.isEmpty || raw.contains("100.") || raw.contains("172.16") || raw.contains("10.203") || raw.contains("localhost") || raw.contains("127.0.0.1") {
+        if raw.isEmpty || raw.contains("deviant-richmond") || raw.contains("100.") || raw.contains("172.16") || raw.contains("10.203") || raw.contains("localhost") || raw.contains("127.0.0.1") {
             raw = AGYWorkService.defaultBridgeURL
             UserDefaults.standard.set(AGYWorkService.defaultBridgeURL, forKey: "agy_bridge_url")
         }
