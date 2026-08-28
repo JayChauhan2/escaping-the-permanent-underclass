@@ -216,62 +216,19 @@ public struct ContentView: View {
     // Grok History & Checklist Drawer
     private var sidebarDrawer: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Top Tab Selector: Chats vs Checklist
-            HStack(spacing: 4) {
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.18)) {
-                        selectedSidebarTab = .chats
-                    }
-                }) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "bubble.left.and.bubble.right")
-                            .font(.system(size: 12, weight: .semibold))
-                        Text("Chats")
-                            .font(.system(size: 13, weight: .semibold))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 7)
-                    .background(selectedSidebarTab == .chats ? Color.grokSurface3 : Color.clear)
-                    .foregroundColor(selectedSidebarTab == .chats ? Color.grokTextPrimary : Color.grokTextSecondary)
-                    .cornerRadius(8)
-                }
-                .buttonStyle(.plain)
+            // Top Tab Selector: Native iOS Segmented Control (Chats vs Checklist)
+            Picker("Sidebar Section", selection: $selectedSidebarTab) {
+                Label("Chats", systemImage: "bubble.left.and.bubble.right")
+                    .tag(SidebarTab.chats)
                 
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.18)) {
-                        selectedSidebarTab = .checklist
-                    }
-                }) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "checklist")
-                            .font(.system(size: 12, weight: .semibold))
-                        Text("Checklist")
-                            .font(.system(size: 13, weight: .semibold))
-                        
-                        if !checklistStorage.activeItems.isEmpty {
-                            Text("\(checklistStorage.activeItems.count)")
-                                .font(.system(size: 10, weight: .bold))
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.grokLinkBlue)
-                                .foregroundColor(Color.white)
-                                .clipShape(Capsule())
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 7)
-                    .background(selectedSidebarTab == .checklist ? Color.grokSurface3 : Color.clear)
-                    .foregroundColor(selectedSidebarTab == .checklist ? Color.grokTextPrimary : Color.grokTextSecondary)
-                    .cornerRadius(8)
-                }
-                .buttonStyle(.plain)
+                let count = checklistStorage.activeItems.count
+                Label(count > 0 ? "Checklist (\(count))" : "Checklist", systemImage: "checklist")
+                    .tag(SidebarTab.checklist)
             }
-            .padding(4)
-            .background(Color.grokSurface2)
-            .cornerRadius(10)
+            .pickerStyle(.segmented)
             .padding(.horizontal, 16)
             .padding(.top, 14)
-            .padding(.bottom, 10)
+            .padding(.bottom, 12)
             
             if selectedSidebarTab == .checklist {
                 ChecklistSidebarView()
