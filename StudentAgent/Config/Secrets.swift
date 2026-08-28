@@ -38,10 +38,23 @@ public struct AppConfig {
     
     public static var activeOllamaURL: String {
         get {
-            if let saved = UserDefaults.standard.string(forKey: "ollama_url"), !saved.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                return saved
+            var raw = UserDefaults.standard.string(forKey: "ollama_url")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if raw.isEmpty {
+                raw = defaultOllamaURL
             }
-            return defaultOllamaURL
+            if !raw.hasPrefix("http://") && !raw.hasPrefix("https://") {
+                raw = "http://" + raw
+            }
+            // Auto-fix https -> http and missing port for raw IP addresses
+            if !raw.contains(".trycloudflare.com") && !raw.contains(".ngrok") {
+                if raw.hasPrefix("https://") {
+                    raw = raw.replacingOccurrences(of: "https://", with: "http://")
+                }
+                if let url = URL(string: raw), url.port == nil {
+                    raw = "\(raw):11434"
+                }
+            }
+            return raw
         }
         set {
             UserDefaults.standard.set(newValue, forKey: "ollama_url")
