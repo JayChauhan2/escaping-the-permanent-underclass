@@ -30,12 +30,13 @@ public final class ChatMessageItem: Identifiable, Codable, ObservableObject {
     @Published public var rawToolCallsJSON: String?
     @Published public var rawProposedActionsJSON: String?
     @Published public var rawEmailDigestsJSON: String?
+    @Published public var rawChecklistItemsJSON: String?
     
     // UI Streaming state
     @Published public var isStreaming: Bool = false
     
     enum CodingKeys: String, CodingKey {
-        case id, roleRaw, content, timestamp, conversationId, imageAttachmentFilename, rawToolCallsJSON, rawProposedActionsJSON, rawEmailDigestsJSON
+        case id, roleRaw, content, timestamp, conversationId, imageAttachmentFilename, rawToolCallsJSON, rawProposedActionsJSON, rawEmailDigestsJSON, rawChecklistItemsJSON
     }
     
     public var role: MessageRole {
@@ -53,6 +54,7 @@ public final class ChatMessageItem: Identifiable, Codable, ObservableObject {
         toolCallsJSON: String? = nil,
         proposedActionsJSON: String? = nil,
         emailDigestsJSON: String? = nil,
+        checklistItemsJSON: String? = nil,
         isStreaming: Bool = false
     ) {
         self.id = id
@@ -64,6 +66,7 @@ public final class ChatMessageItem: Identifiable, Codable, ObservableObject {
         self.rawToolCallsJSON = toolCallsJSON
         self.rawProposedActionsJSON = proposedActionsJSON
         self.rawEmailDigestsJSON = emailDigestsJSON
+        self.rawChecklistItemsJSON = checklistItemsJSON
         self.isStreaming = isStreaming
     }
     
@@ -78,6 +81,7 @@ public final class ChatMessageItem: Identifiable, Codable, ObservableObject {
         self.rawToolCallsJSON = try container.decodeIfPresent(String.self, forKey: .rawToolCallsJSON)
         self.rawProposedActionsJSON = try container.decodeIfPresent(String.self, forKey: .rawProposedActionsJSON)
         self.rawEmailDigestsJSON = try container.decodeIfPresent(String.self, forKey: .rawEmailDigestsJSON)
+        self.rawChecklistItemsJSON = try container.decodeIfPresent(String.self, forKey: .rawChecklistItemsJSON)
         self.isStreaming = false
     }
     
@@ -92,6 +96,7 @@ public final class ChatMessageItem: Identifiable, Codable, ObservableObject {
         try container.encodeIfPresent(rawToolCallsJSON, forKey: .rawToolCallsJSON)
         try container.encodeIfPresent(rawProposedActionsJSON, forKey: .rawProposedActionsJSON)
         try container.encodeIfPresent(rawEmailDigestsJSON, forKey: .rawEmailDigestsJSON)
+        try container.encodeIfPresent(rawChecklistItemsJSON, forKey: .rawChecklistItemsJSON)
     }
     
     #if canImport(UIKit)
@@ -149,6 +154,26 @@ public final class ChatMessageItem: Identifiable, Codable, ObservableObject {
                 rawEmailDigestsJSON = str
             } else {
                 rawEmailDigestsJSON = nil
+            }
+        }
+    }
+    
+    // Decode/encode checklist items
+    public var checklistItems: [ChecklistItem] {
+        get {
+            guard let json = rawChecklistItemsJSON, let data = json.data(using: .utf8) else { return [] }
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            return (try? decoder.decode([ChecklistItem].self, from: data)) ?? []
+        }
+        set {
+            objectWillChange.send()
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            if let data = try? encoder.encode(newValue), let str = String(data: data, encoding: .utf8) {
+                rawChecklistItemsJSON = str
+            } else {
+                rawChecklistItemsJSON = nil
             }
         }
     }

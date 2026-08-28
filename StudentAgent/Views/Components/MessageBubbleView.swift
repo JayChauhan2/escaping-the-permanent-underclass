@@ -167,6 +167,12 @@ public struct MessageBubbleView: View {
                             .padding(.top, 2)
                     }
                     
+                    // Embedded Checklist Preview
+                    if !message.checklistItems.isEmpty {
+                        ChecklistCardView(items: message.checklistItems)
+                            .padding(.top, 2)
+                    }
+                    
                     // Proposed Action Cards (Calendar & Reminders)
                     if !message.proposedActions.isEmpty {
                         VStack(spacing: 8) {

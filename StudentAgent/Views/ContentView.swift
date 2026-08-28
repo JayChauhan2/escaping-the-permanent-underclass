@@ -11,8 +11,15 @@ import UIKit
 public struct ContentView: View {
     @StateObject private var orchestrator = AgentOrchestrator()
     @ObservedObject private var storage = ChatStorage.shared
+    @ObservedObject private var checklistStorage = ChecklistStorage.shared
+    
+    public enum SidebarTab: String, CaseIterable {
+        case chats = "Chats"
+        case checklist = "Checklist"
+    }
     
     @State private var selectedConversation: ConversationItem?
+    @State private var selectedSidebarTab: SidebarTab = .chats
     @State private var showingSidebar: Bool = false
     @State private var showingSettings: Bool = false
     @State private var searchQuery: String = ""
@@ -152,88 +159,148 @@ public struct ContentView: View {
         }
     }
     
-    // Grok History Drawer
+    // Grok History & Checklist Drawer
     private var sidebarDrawer: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header: Title & Top New Chat
-            HStack {
-                Text("Conversations")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(Color.grokTextPrimary)
-                
-                Spacer()
+            // Top Tab Selector: Chats vs Checklist
+            HStack(spacing: 4) {
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.18)) {
+                        selectedSidebarTab = .chats
+                    }
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "bubble.left.and.bubble.right")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text("Chats")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 7)
+                    .background(selectedSidebarTab == .chats ? Color.grokSurface3 : Color.clear)
+                    .foregroundColor(selectedSidebarTab == .chats ? Color.grokTextPrimary : Color.grokTextSecondary)
+                    .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
                 
                 Button(action: {
-                    closeSidebar()
-                    createNewChat()
+                    withAnimation(.easeInOut(duration: 0.18)) {
+                        selectedSidebarTab = .checklist
+                    }
                 }) {
-                    Image(systemName: "square.and.pencil")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(Color.grokTextPrimary)
-                        .padding(8)
-                        .background(Color.grokSurface2)
-                        .clipShape(Circle())
+                    HStack(spacing: 6) {
+                        Image(systemName: "checklist")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text("Checklist")
+                            .font(.system(size: 13, weight: .semibold))
+                        
+                        if !checklistStorage.activeItems.isEmpty {
+                            Text("\(checklistStorage.activeItems.count)")
+                                .font(.system(size: 10, weight: .bold))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.grokLinkBlue)
+                                .foregroundColor(Color.white)
+                                .clipShape(Capsule())
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 7)
+                    .background(selectedSidebarTab == .checklist ? Color.grokSurface3 : Color.clear)
+                    .foregroundColor(selectedSidebarTab == .checklist ? Color.grokTextPrimary : Color.grokTextSecondary)
+                    .cornerRadius(8)
                 }
-                .buttonStyle(GrokPressableStyle())
+                .buttonStyle(.plain)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 14)
-            .padding(.bottom, 12)
-            
-            // Search Box
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 14))
-                    .foregroundColor(Color.grokTextSecondary)
-                
-                TextField("Search chats...", text: $searchQuery)
-                    .font(.system(size: 14))
-                    .foregroundColor(Color.grokTextPrimary)
-                    .tint(Color.grokLinkBlue)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(4)
             .background(Color.grokSurface2)
             .cornerRadius(10)
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .strokeBorder(Color.grokDivider, lineWidth: 1)
-            )
             .padding(.horizontal, 16)
-            .padding(.bottom, 12)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
             
-            // Conversation List
-            ScrollView {
-                LazyVStack(spacing: 4) {
-                    ForEach(filteredConversations) { convo in
-                        Button(action: {
-                            selectedConversation = convo
-                            closeSidebar()
-                        }) {
-                            HStack {
-                                Text(convo.title)
-                                    .font(.system(size: 14, weight: selectedConversation?.id == convo.id ? .bold : .regular))
-                                    .foregroundColor(selectedConversation?.id == convo.id ? Color.grokTextPrimary : Color.grokTextSecondary)
-                                    .lineLimit(1)
-                                
-                                Spacer()
-                            }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 11)
-                            .background(selectedConversation?.id == convo.id ? Color.grokSurface2 : Color.clear)
-                            .cornerRadius(10)
-                        }
-                        .buttonStyle(GrokPressableStyle())
-                        .contextMenu {
-                            Button(role: .destructive, action: {
-                                deleteChat(convo)
+            if selectedSidebarTab == .checklist {
+                ChecklistSidebarView()
+            } else {
+                // Header: Title & Top New Chat
+                HStack {
+                    Text("Conversations")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(Color.grokTextPrimary)
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        closeSidebar()
+                        createNewChat()
+                    }) {
+                        Image(systemName: "square.and.pencil")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(Color.grokTextPrimary)
+                            .padding(7)
+                            .background(Color.grokSurface2)
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(GrokPressableStyle())
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 10)
+                
+                // Search Box
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 14))
+                        .foregroundColor(Color.grokTextSecondary)
+                    
+                    TextField("Search chats...", text: $searchQuery)
+                        .font(.system(size: 14))
+                        .foregroundColor(Color.grokTextPrimary)
+                        .tint(Color.grokLinkBlue)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.grokSurface2)
+                .cornerRadius(10)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(Color.grokDivider, lineWidth: 1)
+                )
+                .padding(.horizontal, 16)
+                .padding(.bottom, 10)
+                
+                // Conversation List
+                ScrollView {
+                    LazyVStack(spacing: 4) {
+                        ForEach(filteredConversations) { convo in
+                            Button(action: {
+                                selectedConversation = convo
+                                closeSidebar()
                             }) {
-                                Label("Delete Conversation", systemImage: "trash")
+                                HStack {
+                                    Text(convo.title)
+                                        .font(.system(size: 14, weight: selectedConversation?.id == convo.id ? .bold : .regular))
+                                        .foregroundColor(selectedConversation?.id == convo.id ? Color.grokTextPrimary : Color.grokTextSecondary)
+                                        .lineLimit(1)
+                                    
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 11)
+                                .background(selectedConversation?.id == convo.id ? Color.grokSurface2 : Color.clear)
+                                .cornerRadius(10)
+                            }
+                            .buttonStyle(GrokPressableStyle())
+                            .contextMenu {
+                                Button(role: .destructive, action: {
+                                    deleteChat(convo)
+                                }) {
+                                    Label("Delete Conversation", systemImage: "trash")
+                                }
                             }
                         }
                     }
+                    .padding(.horizontal, 12)
                 }
-                .padding(.horizontal, 12)
             }
             
             Divider()

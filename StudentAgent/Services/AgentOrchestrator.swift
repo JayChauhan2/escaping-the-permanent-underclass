@@ -221,6 +221,47 @@ public final class AgentOrchestrator: ObservableObject {
                     ]),
                     "required": AnyCodable(["reminders"])
                 ]
+            ),
+            DeepSeekToolDefinition(
+                name: "add_to_checklist",
+                description: "Adds one or more tasks to the user's running sidebar checklist with optional due dates and previews them in chat.",
+                parameters: [
+                    "type": AnyCodable("object"),
+                    "properties": AnyCodable([
+                        "items": [
+                            "type": "array",
+                            "description": "List of checklist items to add",
+                            "items": [
+                                "type": "object",
+                                "properties": [
+                                    "title": [
+                                        "type": "string",
+                                        "description": "Task description / title"
+                                    ],
+                                    "due_date_iso": [
+                                        "type": "string",
+                                        "description": "Optional due date in ISO format (e.g. '2026-08-30' or '2026-09-01T11:59:00')"
+                                    ],
+                                    "notes": [
+                                        "type": "string",
+                                        "description": "Optional details or notes"
+                                    ]
+                                ],
+                                "required": ["title"]
+                            ]
+                        ]
+                    ]),
+                    "required": AnyCodable(["items"])
+                ]
+            ),
+            DeepSeekToolDefinition(
+                name: "get_checklist",
+                description: "Retrieves all active pending and recently completed tasks from the user's running sidebar checklist.",
+                parameters: [
+                    "type": AnyCodable("object"),
+                    "properties": AnyCodable([:]),
+                    "required": AnyCodable([])
+                ]
             )
         ]
     }
@@ -374,6 +415,7 @@ public final class AgentOrchestrator: ObservableObject {
         do {
             var collectedActions: [CalendarAction] = []
             var collectedEmails: [EmailItem] = []
+            var collectedChecklistItems: [ChecklistItem] = []
             var streamingMsg: ChatMessageItem? = nil
             
             var currentTurn = 0
@@ -422,7 +464,8 @@ public final class AgentOrchestrator: ObservableObject {
                             name: toolCall.function.name,
                             argumentsJSON: toolCall.function.arguments,
                             collectedActions: &collectedActions,
-                            collectedEmails: &collectedEmails
+                            collectedEmails: &collectedEmails,
+                            collectedChecklistItems: &collectedChecklistItems
                         )
                         
                         debugLogger.log(
@@ -446,6 +489,9 @@ public final class AgentOrchestrator: ObservableObject {
                         }
                         if !collectedEmails.isEmpty {
                             msg.emailDigests = collectedEmails
+                        }
+                        if !collectedChecklistItems.isEmpty {
+                            msg.checklistItems = collectedChecklistItems
                         }
                         self.storage.saveData()
                     } else {
@@ -489,6 +535,8 @@ public final class AgentOrchestrator: ObservableObject {
         switch name {
         case "search_web":
             return ("globe", "Searching live web via Tavily...")
+        case "add_to_checklist", "get_checklist":
+            return ("checklist", "Updating running checklist...")
         case "fetch_recent_emails":
             return ("envelope.badge.shield.half.filled", "Reading inbox messages...")
         case "search_emails":
@@ -527,11 +575,41 @@ public final class AgentOrchestrator: ObservableObject {
         name: String,
         argumentsJSON: String,
         collectedActions: inout [CalendarAction],
-        collectedEmails: inout [EmailItem]
+        collectedEmails: inout [EmailItem],
+        collectedChecklistItems: inout [ChecklistItem]
     ) async throws -> String {
         let args = (try? JSONSerialization.jsonObject(with: argumentsJSON.data(using: .utf8) ?? Data()) as? [String: Any]) ?? [:]
         
         switch name {
+        case "add_to_checklist":
+            var created: [ChecklistItem] = []
+            if let itemsList = args["items"] as? [[String: Any]] {
+                for itemDict in itemsList {
+                    let title = itemDict["title"] as? String ?? "Task"
+                    let dueStr = itemDict["due_date_iso"] as? String
+                    let dueDate = dueStr != nil ? parseDateLocal(dueStr!) : nil
+                    let notes = itemDict["notes"] as? String
+                    let item = ChecklistStorage.shared.addItem(title: title, dueDate: dueDate, notes: notes)
+                    created.append(item)
+                }
+            } else if let title = args["title"] as? String {
+                let dueStr = args["due_date_iso"] as? String
+                let dueDate = dueStr != nil ? parseDateLocal(dueStr!) : nil
+                let notes = args["notes"] as? String
+                let item = ChecklistStorage.shared.addItem(title: title, dueDate: dueDate, notes: notes)
+                created.append(item)
+            }
+            collectedChecklistItems.append(contentsOf: created)
+            return "Added \(created.count) item(s) to sidebar checklist."
+            
+        case "get_checklist":
+            let active = ChecklistStorage.shared.activeItems
+            let completed = ChecklistStorage.shared.completedWithin24Hours
+            collectedChecklistItems.append(contentsOf: active)
+            collectedChecklistItems.append(contentsOf: completed)
+            let summaries = active.map { "- [ ] \($0.title) (\($0.formattedDateNumerical($0.dueDate)))" }
+            return summaries.isEmpty ? "Checklist is currently empty." : summaries.joined(separator: "\n")
+            
         case "search_web":
             let query = args["query"] as? String ?? ""
             let maxResults = args["max_results"] as? Int ?? 5

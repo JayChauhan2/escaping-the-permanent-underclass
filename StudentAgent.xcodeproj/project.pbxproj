@@ -34,6 +34,10 @@
 		8F1234567890ABCD12340002 /* VisionOCRService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1234567890ABCD12340001 /* VisionOCRService.swift */; };
 		8F1234567890ABCD12340004 /* CameraPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1234567890ABCD12340003 /* CameraPickerView.swift */; };
 		8F1234567890ABCD12340006 /* TavilySearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1234567890ABCD12340005 /* TavilySearchService.swift */; };
+		8F1234567890ABCD12340008 /* ChecklistItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1234567890ABCD12340007 /* ChecklistItem.swift */; };
+		8F1234567890ABCD1234000A /* ChecklistStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1234567890ABCD12340009 /* ChecklistStorage.swift */; };
+		8F1234567890ABCD1234000C /* ChecklistCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1234567890ABCD1234000B /* ChecklistCardView.swift */; };
+		8F1234567890ABCD1234000E /* ChecklistSidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1234567890ABCD1234000D /* ChecklistSidebarView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -65,6 +69,10 @@
 		8F1234567890ABCD12340001 /* VisionOCRService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Services/VisionOCRService.swift"; sourceTree = "<group>"; };
 		8F1234567890ABCD12340003 /* CameraPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Views/Components/CameraPickerView.swift"; sourceTree = "<group>"; };
 		8F1234567890ABCD12340005 /* TavilySearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Services/TavilySearchService.swift"; sourceTree = "<group>"; };
+		8F1234567890ABCD12340007 /* ChecklistItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Models/ChecklistItem.swift"; sourceTree = "<group>"; };
+		8F1234567890ABCD12340009 /* ChecklistStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Services/ChecklistStorage.swift"; sourceTree = "<group>"; };
+		8F1234567890ABCD1234000B /* ChecklistCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Views/Components/ChecklistCardView.swift"; sourceTree = "<group>"; };
+		8F1234567890ABCD1234000D /* ChecklistSidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudentAgent/Views/Components/ChecklistSidebarView.swift"; sourceTree = "<group>"; };
 		42B16AC3305C4E749A18B8C5 /* StudentAgent.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StudentAgent.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -119,6 +127,10 @@
 				8F1234567890ABCD12340001 /* VisionOCRService.swift */,
 				8F1234567890ABCD12340003 /* CameraPickerView.swift */,
 				8F1234567890ABCD12340005 /* TavilySearchService.swift */,
+				8F1234567890ABCD12340007 /* ChecklistItem.swift */,
+				8F1234567890ABCD12340009 /* ChecklistStorage.swift */,
+				8F1234567890ABCD1234000B /* ChecklistCardView.swift */,
+				8F1234567890ABCD1234000D /* ChecklistSidebarView.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -217,6 +229,10 @@
 				8F1234567890ABCD12340002 /* VisionOCRService.swift in Sources */,
 				8F1234567890ABCD12340004 /* CameraPickerView.swift in Sources */,
 				8F1234567890ABCD12340006 /* TavilySearchService.swift in Sources */,
+				8F1234567890ABCD12340008 /* ChecklistItem.swift in Sources */,
+				8F1234567890ABCD1234000A /* ChecklistStorage.swift in Sources */,
+				8F1234567890ABCD1234000C /* ChecklistCardView.swift in Sources */,
+				8F1234567890ABCD1234000E /* ChecklistSidebarView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
