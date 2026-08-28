@@ -32,7 +32,7 @@ public struct AppConfig {
         }
     }
     
-    // LOCAL OLLAMA CONFIGURATION:
+    // LOCAL OLLAMA CONFIGURATION (LOCAL FIRST):
     public static let defaultOllamaURL: String = "http://10.203.247.20:11434"
     public static let defaultOllamaModel: String = "qwen2.5:14b"
     
@@ -60,8 +60,8 @@ public struct AppConfig {
         }
     }
     
-    // DEEPSEEK CLOUD CONFIGURATION:
-    public static let defaultDeepSeekAPIKey: String = "sk-d48da34340ce4ba7a80c5f557733db62"
+    // DEEPSEEK CLOUD CONFIGURATION (OPTIONAL / SECONDARY):
+    public static let defaultDeepSeekAPIKey: String = ""
     public static let deepSeekBaseURL: String = "https://api.deepseek.com"
     public static let defaultModel: String = "deepseek-chat"
     
