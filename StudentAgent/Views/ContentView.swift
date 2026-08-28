@@ -56,59 +56,15 @@ public struct ContentView: View {
                     
                     Spacer(minLength: 4)
                     
-                    // Floating Mode Switcher
-                    HStack(spacing: 2) {
-                        Button(action: {
-                            #if canImport(UIKit)
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                            #endif
-                            withAnimation(.easeInOut(duration: 0.18)) {
-                                selectedAppMode = .campus
-                            }
-                        }) {
-                            HStack(spacing: 5) {
-                                Image(systemName: "graduationcap.fill")
-                                    .font(.system(size: 11))
-                                Text("Campus")
-                                    .font(.system(size: 12, weight: .semibold))
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(selectedAppMode == .campus ? Color.grokSurface3 : Color.clear)
-                            .foregroundColor(selectedAppMode == .campus ? Color.grokTextPrimary : Color.grokTextSecondary)
-                            .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        
-                        Button(action: {
-                            #if canImport(UIKit)
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                            #endif
-                            withAnimation(.easeInOut(duration: 0.18)) {
-                                selectedAppMode = .work
-                            }
-                        }) {
-                            HStack(spacing: 5) {
-                                Image(systemName: "terminal.fill")
-                                    .font(.system(size: 11))
-                                Text("AGY Work")
-                                    .font(.system(size: 12, weight: .semibold))
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(selectedAppMode == .work ? Color.grokSurface3 : Color.clear)
-                            .foregroundColor(selectedAppMode == .work ? Color.grokTextPrimary : Color.grokTextSecondary)
-                            .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
+                    // Native iOS Liquid Glass Sliding Segmented Picker
+                    Picker("App Mode", selection: $selectedAppMode) {
+                        Label("Campus", systemImage: "graduationcap.fill")
+                            .tag(AppMode.campus)
+                        Label("AGY Work", systemImage: "terminal.fill")
+                            .tag(AppMode.work)
                     }
-                    .padding(3)
-                    .background(Color.grokSurface1)
-                    .clipShape(Capsule())
-                    .overlay(
-                        Capsule()
-                            .strokeBorder(Color.grokDivider, lineWidth: 1)
-                    )
+                    .pickerStyle(.segmented)
+                    .frame(maxWidth: 220)
                     
                     Spacer(minLength: 4)
                     
