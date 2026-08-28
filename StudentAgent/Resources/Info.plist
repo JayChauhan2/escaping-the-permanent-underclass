@@ -64,6 +64,17 @@
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
 	
+	<!-- Allow Local Network & HTTP for Mac Ollama -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>StudentAgent connects to your local Mac Ollama server over Wi-Fi for AI inference.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	
 	<!-- OAuth URL Schemes -->
 	<key>CFBundleURLTypes</key>
 	<array>
