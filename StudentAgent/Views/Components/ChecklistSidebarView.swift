@@ -131,6 +131,52 @@ public struct ChecklistSidebarView: View {
                                         .background(Color.grokSurface2.opacity(0.5))
                                         .cornerRadius(8)
                                         .contextMenu {
+                                            Button {
+                                                #if canImport(UIKit)
+                                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                                #endif
+                                                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                                    storage.moveActiveItemUp(id: item.id)
+                                                }
+                                            } label: {
+                                                Label("Move Up", systemImage: "arrow.up")
+                                            }
+                                            
+                                            Button {
+                                                #if canImport(UIKit)
+                                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                                #endif
+                                                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                                    storage.moveActiveItemDown(id: item.id)
+                                                }
+                                            } label: {
+                                                Label("Move Down", systemImage: "arrow.down")
+                                            }
+                                            
+                                            Button {
+                                                #if canImport(UIKit)
+                                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                                #endif
+                                                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                                    storage.moveActiveItemToTop(id: item.id)
+                                                }
+                                            } label: {
+                                                Label("Move to Top", systemImage: "arrow.up.to.line")
+                                            }
+                                            
+                                            Button {
+                                                #if canImport(UIKit)
+                                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                                #endif
+                                                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                                    storage.moveActiveItemToBottom(id: item.id)
+                                                }
+                                            } label: {
+                                                Label("Move to Bottom", systemImage: "arrow.down.to.line")
+                                            }
+                                            
+                                            Divider()
+                                            
                                             Button(role: .destructive) {
                                                 deleteTask(item)
                                             } label: {

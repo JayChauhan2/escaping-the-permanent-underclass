@@ -29,19 +29,53 @@ public final class ChecklistStorage: ObservableObject {
         loadData()
     }
     
-    // Active (uncompleted) items sorted by due date
+    // Active (uncompleted) items preserving user order
     public var activeItems: [ChecklistItem] {
         items.filter { !$0.isCompleted }
-            .sorted { (a, b) -> Bool in
-                if let da = a.dueDate, let db = b.dueDate {
-                    return da < db
-                } else if a.dueDate != nil {
-                    return true
-                } else if b.dueDate != nil {
-                    return false
-                }
-                return a.createdAt > b.createdAt
-            }
+    }
+    
+    public func moveActiveItemUp(id: String) {
+        let active = activeItems
+        guard let activeIdx = active.firstIndex(where: { $0.id == id }), activeIdx > 0 else { return }
+        let prevItem = active[activeIdx - 1]
+        
+        guard let itemIdx = items.firstIndex(where: { $0.id == id }),
+              let prevItemIdx = items.firstIndex(where: { $0.id == prevItem.id }) else { return }
+        
+        items.swapAt(itemIdx, prevItemIdx)
+        saveData()
+    }
+    
+    public func moveActiveItemDown(id: String) {
+        let active = activeItems
+        guard let activeIdx = active.firstIndex(where: { $0.id == id }), activeIdx < active.count - 1 else { return }
+        let nextItem = active[activeIdx + 1]
+        
+        guard let itemIdx = items.firstIndex(where: { $0.id == id }),
+              let nextItemIdx = items.firstIndex(where: { $0.id == nextItem.id }) else { return }
+        
+        items.swapAt(itemIdx, nextItemIdx)
+        saveData()
+    }
+    
+    public func moveActiveItemToTop(id: String) {
+        guard let itemIdx = items.firstIndex(where: { $0.id == id }) else { return }
+        let item = items.remove(at: itemIdx)
+        items.insert(item, at: 0)
+        saveData()
+    }
+    
+    public func moveActiveItemToBottom(id: String) {
+        guard let itemIdx = items.firstIndex(where: { $0.id == id }) else { return }
+        let item = items.remove(at: itemIdx)
+        // Find last active item index or end of array
+        let uncompletedIndices = items.indices.filter { !items[$0].isCompleted }
+        if let lastActive = uncompletedIndices.last {
+            items.insert(item, at: lastActive + 1)
+        } else {
+            items.append(item)
+        }
+        saveData()
     }
     
     // Completed items within past 24 hours
